@@ -153,6 +153,12 @@ function setupLongPressInteraction() {
     const MOVE_TOLERANCE = 15;
     const mapContainer = document.getElementById('map');
 
+    // Prevent default context menu (long press menu)
+    mapContainer.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        return false;
+    });
+
     const startPress = (e) => {
         // Ignore if target is control, popup, or marker
         if (e.target.closest('.leaflet-control-container') ||
