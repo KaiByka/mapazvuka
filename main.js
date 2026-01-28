@@ -1,0 +1,898 @@
+// Config is loaded globally via config.js
+
+// --- State & Variables ---
+let map;
+let tempMarker;
+let markers = [];
+const feelingLayers = {
+    'relaxed': new L.LayerGroup(),
+    'happy': new L.LayerGroup(),
+    'neutral': new L.LayerGroup(),
+    'stressed': new L.LayerGroup()
+};
+
+// --- Config ---
+const ZAGREB_COORDS = [45.815, 15.981];
+const INITIAL_ZOOM = 13;
+
+// --- Colors ---
+const CATEGORY_COLORS = {
+    'Priroda': '#22c55e', // Green
+    'Voda': '#3b82f6',    // Blue
+    'Ljudi': '#eab308',   // Yellow
+    'Buka': '#ef4444'     // Red
+};
+
+// --- Icons ---
+const getCategoryIcon = (category) => {
+    switch (category) {
+        case 'Priroda': return '🌲';
+        case 'Voda': return '💧';
+        case 'Ljudi': return '☕';
+        case 'Buka': return '📢';
+        default: return '📍';
+    }
+};
+
+const getFeelingTag = (feeling) => {
+    let type = 'neutral';
+    let label = 'Neutralno';
+    let iconName = 'meh';
+
+    if (feeling.includes('😌')) {
+        type = 'relaxed';
+        label = 'Opušteno';
+        iconName = 'smile';
+    } else if (feeling.includes('😊')) {
+        type = 'happy';
+        label = 'Sretno';
+        iconName = 'sun';
+    } else if (feeling.includes('😖')) {
+        type = 'stressed';
+        label = 'Stresno';
+        iconName = 'alert-octagon';
+    }
+
+    return `<div class="feeling-tag ${type}">
+        <i data-lucide="${iconName}" style="width: 14px; height: 14px;"></i>
+        <span>${label}</span>
+    </div>`;
+};
+
+
+
+// --- Initialization ---
+document.addEventListener('DOMContentLoaded', () => {
+    initMap();
+    setupCloudinary();
+    fetchMarkers();
+    setupUI();
+});
+
+function initMap() {
+    // 1. Create Map
+    map = L.map('map').setView(ZAGREB_COORDS, INITIAL_ZOOM);
+
+    // 2. Define Layers
+    const darkMatter = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+    });
+
+    const positron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+    });
+
+    const openTopo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17,
+        attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+    });
+
+    // 3. Add default layer
+    darkMatter.addTo(map);
+
+    // 4. Add Feeling Layers (All active by default)
+    Object.values(feelingLayers).forEach(layer => layer.addTo(map));
+
+    // 5. Layer Controls
+    const baseMaps = {
+        "Dark Matter": darkMatter,
+        "Positron": positron,
+        "OpenTopoMap": openTopo
+    };
+    L.control.layers(baseMaps).addTo(map);
+
+    // 5. Click Event
+    map.on('click', onMapClick);
+
+    // 6. Dynamic Logo & Icon Coloring
+    const logo = document.getElementById('app-logo');
+    const aboutBtn = document.getElementById('about-btn');
+
+    // Initial State (Dark Matter is default)
+    logo.classList.add('invert-white');
+    document.body.classList.add('dark-mode');
+
+    map.on('baselayerchange', (e) => {
+        console.log("Layer changed to:", e.name); // Debug Log
+        const isLight = e.name !== 'Dark Matter';
+
+        if (!isLight) { // Dark Mode
+            logo.classList.add('invert-white');
+            aboutBtn.classList.remove('dark-icon');
+            document.body.classList.add('dark-mode');
+            document.body.classList.remove('light-mode');
+        } else { // Light Mode
+            logo.classList.remove('invert-white');
+            aboutBtn.classList.add('dark-icon');
+            document.body.classList.remove('dark-mode');
+            document.body.classList.add('light-mode');
+        }
+
+        updateMarkerStyles(isLight);
+    });
+
+    setupFilters();
+}
+
+// --- Map Interaction ---
+function onMapClick(e) {
+    const { lat, lng } = e.latlng;
+
+    // Remove existing temp marker if any
+    if (tempMarker) {
+        map.removeLayer(tempMarker);
+    }
+
+    // Add new temp marker
+    tempMarker = L.marker([lat, lng]).addTo(map);
+
+    // Open Modal
+    openModal(lat, lng);
+}
+
+// --- Cloudinary ---
+let cloudinaryWidget;
+
+function setupCloudinary() {
+    if (!window.cloudinary) {
+        console.error("Cloudinary script not loaded");
+        return;
+    }
+
+    cloudinaryWidget = window.cloudinary.createUploadWidget({
+        cloudName: CONFIG.CLOUDINARY_CLOUD_NAME,
+        uploadPreset: CONFIG.CLOUDINARY_UPLOAD_PRESET,
+        sources: ['local', 'url'],
+        resourceType: 'auto',
+        multiple: false,
+        max_files: 1, // Explicitly limit to 1 file
+        theme: 'minimal'
+    }, (error, result) => {
+        if (!error && result) {
+            // Handle success event
+            if (result.event === "success") {
+                console.log('Upload success:', result.info);
+                handleUploadSuccess(result.info);
+                cloudinaryWidget.close();
+            }
+            // Handle queues-end event (fallback if success hangs)
+            else if (result.event === "queues-end") {
+                console.log('Queue ended');
+                cloudinaryWidget.close();
+            }
+        }
+    });
+
+    document.getElementById('upload-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        cloudinaryWidget.open();
+    });
+}
+
+// --- Audio Recorder Logic ---
+let mediaRecorder;
+let audioChunks = [];
+let recordedBlob = null;
+
+function setupRecorder() {
+    console.log("Initializing Recorder..."); // Debug Log
+
+    const recordBtn = document.getElementById('record-btn');
+    const stopBtn = document.getElementById('stop-btn');
+
+    if (!recordBtn) {
+        console.error("CRITICAL: Record button NOT found in DOM!");
+        return;
+    }
+
+    const indicator = document.getElementById('recording-indicator');
+    const audioPreview = document.getElementById('audio-preview');
+    const statusEl = document.getElementById('upload-status');
+    const submitBtn = document.getElementById('submit-btn');
+
+    console.log("Recorder elements found, adding listener to:", recordBtn); // Debug Log
+
+    recordBtn.addEventListener('click', async () => {
+        console.log("Record button clicked"); // Debug log
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.error("MediaDevices API not supported"); // Debug log
+            alert("Vaš preglednik ne podržava snimanje zvuka (MediaDevices API). Provjerite koristite li HTTPS ili localhost.");
+            return;
+        }
+
+        try {
+            console.log("Requesting microphone access..."); // Debug log
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log("Microphone access granted"); // Debug log
+
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.start();
+
+            // UI Updates
+            recordBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            indicator.classList.remove('hidden');
+            statusEl.textContent = "";
+            audioPreview.classList.add('hidden');
+            audioPreview.src = "";
+            recordedBlob = null;
+            document.getElementById('audioUrl').value = ""; // Clear any previous upload
+
+            mediaRecorder.addEventListener("dataavailable", event => {
+                audioChunks.push(event.data);
+            });
+
+            mediaRecorder.addEventListener("stop", () => {
+                recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                // Create preview URL
+                const audioUrl = URL.createObjectURL(recordedBlob);
+                audioPreview.src = audioUrl;
+                audioPreview.classList.remove('hidden');
+
+                // UI Updates
+                stopBtn.classList.add('hidden');
+                recordBtn.classList.remove('hidden');
+                indicator.classList.add('hidden');
+                recordBtn.innerHTML = '<span class="mic-icon">🔄</span> Snimi ponovno';
+
+                statusEl.textContent = "Zvuk snimljen! Spremno za spremanje.";
+                statusEl.style.color = "#FFD700";
+
+                // Enable submit
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+
+                // Stop all tracks to release mic
+                stream.getTracks().forEach(track => track.stop());
+            });
+
+        } catch (err) {
+            console.error("Error accessing microphone:", err);
+            alert("Greška pri pristupu mikrofonu. Provjerite dozvole.");
+        }
+    });
+
+    stopBtn.addEventListener('click', () => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+    });
+}
+
+function handleUploadSuccess(info) {
+    const url = info.secure_url;
+    document.getElementById('audioUrl').value = url;
+
+    // UI Feedback
+    const statusEl = document.getElementById('upload-status');
+    statusEl.textContent = `Zvuk učitan! (${info.original_filename})`;
+
+    // Enable submit
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = '1';
+}
+
+// --- User Interface ---
+const modal = document.getElementById('sound-modal');
+const form = document.getElementById('sound-form');
+const closeBtn = document.querySelector('.close-btn');
+
+function setupUI() {
+    console.log("Setting up UI..."); // Debug Log
+    closeBtn.addEventListener('click', closeModal);
+
+    // Close modal on outside click
+    window.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
+    form.addEventListener('submit', handleFormSubmit);
+
+    // About Modal Logic
+    const aboutBtn = document.getElementById('about-btn');
+    const aboutModal = document.getElementById('about-modal');
+    const aboutClose = document.querySelector('.about-close');
+
+    aboutBtn.addEventListener('click', () => {
+        aboutModal.classList.remove('hidden');
+    });
+
+    aboutClose.addEventListener('click', () => {
+        aboutModal.classList.add('hidden');
+    });
+
+    // Close about modal on outside click (reusing window global click from shared logic if applicable or adding specific)
+    // The shared window click handles 'modal' variable which is the sound modal.
+    // Let's add specific handling or generic class handling.
+    window.addEventListener('click', (event) => {
+        if (event.target === aboutModal) {
+            aboutModal.classList.add('hidden');
+        }
+    });
+    // Locate Modal Logic
+    const locateBtn = document.getElementById('locate-btn');
+
+    locateBtn.addEventListener('click', () => {
+        // High accuracy can be slow or fail on some non-GPS devices, but let's try standard first.
+        // We set a timeout to avoid hanging indefinitely.
+        map.locate({
+            setView: true,
+            maxZoom: 16,
+            timeout: 10000,
+            enableHighAccuracy: false // Changed to false to rely on WiFi/IP which is often better for desktops
+        });
+    });
+
+    map.on('locationfound', (e) => {
+        const radius = e.accuracy;
+
+        // Remove previous location markers if they exist (optional, but good for cleanup)
+        map.eachLayer(layer => {
+            if (layer._isUserLocation) {
+                map.removeLayer(layer);
+            }
+        });
+
+        const circle = L.circle(e.latlng, radius, {
+            color: '#FFD700',
+            fillColor: '#FFD700',
+            fillOpacity: 0.2
+        });
+        circle._isUserLocation = true; // Tag for removal
+        circle.addTo(map);
+
+        // Custom user location marker
+        const marker = L.circleMarker(e.latlng, {
+            radius: 8,
+            fillColor: '#FFD700',
+            color: '#fff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+        });
+        marker._isUserLocation = true; // Tag for removal
+        marker.addTo(map).bindPopup("Vi ste ovdje").openPopup();
+    });
+
+    map.on('locationerror', (e) => {
+        console.error("Geolocation error:", e);
+        let msg = "Greška pri lociranju.";
+
+        // Leaflet wraps the native error code
+        if (e.code === 1) { // PERMISSION_DENIED
+            msg = "Nemamo dozvolu za pristup lokaciji. Molimo omogućite lokaciju u pregledniku.";
+        } else if (e.code === 2) { // POSITION_UNAVAILABLE
+            msg = "Lokacija nije dostupna. Provjerite GPS ili mrežnu vezu.";
+        } else if (e.code === 3) { // TIMEOUT
+            msg = "Vrijeme za lociranje je isteklo. Pokušajte ponovno.";
+        } else {
+            msg = `Nije moguće pronaći vašu lokaciju. (${e.message})`;
+        }
+
+        alert(msg);
+    });
+
+    setupRecorder();
+}
+
+function openModal(lat, lng) {
+    document.getElementById('lat').value = lat;
+    document.getElementById('lng').value = lng;
+
+    // Reset form
+    form.reset();
+    document.getElementById('upload-status').textContent = '';
+    document.getElementById('audioUrl').value = '';
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('submit-btn').style.opacity = '0.5';
+
+    // Reset Recorder UI
+    document.getElementById('audio-preview').classList.add('hidden');
+    document.getElementById('audio-preview').src = "";
+    document.getElementById('record-btn').classList.remove('hidden');
+    document.getElementById('record-btn').innerHTML = '<span class="mic-icon">🎙️</span> Snimi';
+    document.getElementById('stop-btn').classList.add('hidden');
+    document.getElementById('recording-indicator').classList.add('hidden');
+    recordedBlob = null;
+
+    modal.classList.remove('hidden');
+}
+
+function closeModal() {
+    modal.classList.add('hidden');
+    // If recording is active, stop it?
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+}
+
+// --- Data Handling (Google Sheets) ---
+async function handleFormSubmit(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.textContent = "Spremanje...";
+    submitBtn.disabled = true;
+
+    // Handle Blob Upload if needed
+    if (recordedBlob && !document.getElementById('audioUrl').value) {
+        try {
+            document.getElementById('upload-status').textContent = "Upload snimke na Cloud...";
+            const formData = new FormData();
+            formData.append('file', recordedBlob, 'recording.webm');
+            formData.append('upload_preset', CONFIG.CLOUDINARY_UPLOAD_PRESET);
+            // Resource type auto or video usually works for audio chunks (webm)
+
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${CONFIG.CLOUDINARY_CLOUD_NAME}/video/upload`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            if (result.secure_url) {
+                document.getElementById('audioUrl').value = result.secure_url;
+                console.log("Recorded audio uploaded:", result.secure_url);
+            } else {
+                throw new Error("Cloudinary upload failed");
+            }
+
+        } catch (err) {
+            console.error("Upload error:", err);
+            alert("Greška pri uploadu snimke. Pokušajte ponovno.");
+            submitBtn.textContent = "Spremi lokaciju";
+            submitBtn.disabled = false;
+            return;
+        }
+    }
+
+    const formData = new FormData(form);
+    const data = {
+        lat: formData.get('lat'),
+        lng: formData.get('lng'),
+        category: formData.get('category'),
+        feeling: formData.get('feeling'),
+        comment: formData.get('comment'), // New field
+        audioUrl: formData.get('audioUrl')
+    };
+
+    console.log("Submitting data:", data);
+
+    // Optimistic UI: Add marker immediately
+    addMarkerOnMap(data);
+    closeModal();
+    submitBtn.textContent = "Spremi lokaciju"; // Reset button for next time
+    if (tempMarker) map.removeLayer(tempMarker);
+
+    try {
+        // We use 'no-cors' mode often for Apps Script if not properly managing CORS headers, 
+        // but 'cors' is better if script handles options. 
+        // Standard Apps Script POST usually requires following redirects or specific setup.
+        // Simple POST with textual JSON payload:
+
+        await fetch(CONFIG.APPS_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', // Apps Script limits
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        console.log("Data sent to Sheets");
+        // Note: no-cors means we can't read response.
+
+    } catch (error) {
+        console.error("Error saving marker:", error);
+        alert("Greška pri spremanju. Provjerite konzolu.");
+    }
+}
+
+async function fetchMarkers() {
+    console.log("Fetching markers...");
+
+    // 1. Try LocalStorage Cache first
+    const cachedData = localStorage.getItem('min_ak_markers');
+    let hasLoadedFromCache = false;
+
+    if (cachedData) {
+        try {
+            const parsed = JSON.parse(cachedData);
+            console.log("Loaded from cache:", parsed.length);
+            renderMarkers(parsed);
+            hasLoadedFromCache = true;
+            hideSplash(); // Show map immediately
+        } catch (e) {
+            console.warn("Cache parse error", e);
+        }
+    }
+
+    // 2. Network Fetch (updates cache)
+    try {
+        const response = await fetch(CONFIG.APPS_SCRIPT_URL);
+        const data = await response.json();
+        const markerList = Array.isArray(data) ? data : (data.markers || []);
+
+        console.log("Fetched new data:", markerList.length);
+
+        // Update Cache
+        localStorage.setItem('min_ak_markers', JSON.stringify(markerList));
+
+        // Re-render only if different count or forced? 
+        // For simplicity and correctness, we always re-render to show latest state.
+        // Optimization: Could diff content, but re-render is safe.
+        renderMarkers(markerList);
+
+        if (!hasLoadedFromCache) {
+            hideSplash();
+        }
+
+    } catch (error) {
+        console.error("Error fetching markers:", error);
+        if (!hasLoadedFromCache) {
+            hideSplash(); // Hide anyway so user isn't stuck
+            alert("Nije moguće učitati podatke. Prikazujem mapu.");
+        }
+    }
+}
+
+function clearMarkers() {
+    // Remove all markers from layers
+    Object.values(feelingLayers).forEach(layer => layer.clearLayers());
+
+    // Remove any markers added directly to map (fallback)
+    markers.forEach(m => {
+        if (map.hasLayer(m)) map.removeLayer(m);
+    });
+    markers = [];
+}
+
+// --- Statistics Logic ---
+// --- Statistics Logic ---
+function updateStats(currentMarkers) {
+    const total = currentMarkers.length;
+    let html = '';
+
+    if (total === 0) {
+        html = `
+        <div class="stat-item">
+            <span>Ukupno:</span> <span class="stat-highlight">0</span>
+        </div>
+        <div class="separator-dot">•</div>
+        <div class="stat-item">
+            <span>Pomiči mapu za više podataka</span>
+        </div>`;
+    } else {
+        const categories = {};
+        const feelings = {};
+
+        currentMarkers.forEach(m => {
+            const cat = m.category || 'Nepoznato';
+            const feel = m.feeling || 'Neutralno';
+
+            categories[cat] = (categories[cat] || 0) + 1;
+            feelings[feel] = (feelings[feel] || 0) + 1;
+        });
+
+        const dominantCategory = Object.keys(categories).reduce((a, b) => categories[a] > categories[b] ? a : b);
+        const dominantFeeling = Object.keys(feelings).reduce((a, b) => feelings[a] > feelings[b] ? a : b);
+
+        let feelLabel = dominantFeeling;
+        if (feelLabel.includes('😌')) feelLabel = 'Opušteno 😌';
+        else if (feelLabel.includes('😊')) feelLabel = 'Sretno 😊';
+        else if (feelLabel.includes('😖')) feelLabel = 'Stresno 😖';
+        else if (feelLabel.includes('😐')) feelLabel = 'Neutralno 😐';
+
+        html = `
+            <div class="stat-item">
+                <span>Ukupno:</span> <span class="stat-highlight">${total}</span>
+            </div>
+            <div class="separator-dot">•</div>
+            <div class="stat-item">
+                <i data-lucide="chart-bar-big" width="16" height="16"></i> <span>Dominira:</span> <span class="stat-highlight">${dominantCategory}</span>
+            </div>
+            <div class="separator-dot">•</div>
+            <div class="stat-item">
+                <i data-lucide="sparkles" width="16" height="16"></i> <span>Vibra:</span> <span class="stat-highlight">${feelLabel}</span>
+            </div>
+        `;
+    }
+
+    const statusBar = document.getElementById('status-bar');
+    if (statusBar) {
+        statusBar.innerHTML = html;
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+}
+
+function updateStatsFromView() {
+    if (!map) return;
+    const bounds = map.getBounds();
+    const visibleMarkers = [];
+
+    // Iterate through active feelingLayers
+    Object.values(feelingLayers).forEach(layerGroup => {
+        if (map.hasLayer(layerGroup)) {
+            layerGroup.eachLayer(layer => {
+                // Check if marker is in current view
+                if (bounds.contains(layer.getLatLng()) && layer.feature) {
+                    visibleMarkers.push(layer.feature);
+                }
+            });
+        }
+    });
+
+    updateStats(visibleMarkers);
+}
+
+function setupStatsListeners() {
+    map.off('moveend', updateStatsFromView);
+    map.on('moveend', updateStatsFromView);
+    map.on('zoomend', updateStatsFromView);
+    map.on('overlayadd', updateStatsFromView);
+    map.on('overlayremove', updateStatsFromView);
+}
+
+function renderMarkers(data) {
+    clearMarkers();
+    data.forEach(markerData => {
+        addMarkerOnMap(markerData);
+    });
+
+    // Initialize dynamic stats
+    setupStatsListeners();
+    // Delay slightly to ensure map bounds are ready
+    setTimeout(() => {
+        updateStatsFromView();
+    }, 100);
+}
+
+function hideSplash() {
+    const splash = document.getElementById('splash-screen');
+    if (splash) {
+        splash.classList.add('hidden');
+    }
+}
+
+// --- Helper Functions for Markers ---
+function updateMarkerStyles(isLight) {
+    markers.forEach(marker => {
+        if (marker instanceof L.CircleMarker && !marker._isUserLocation) {
+            // We need to know the original color which we stored in options
+            const color = marker.options.originalColor;
+            const style = getMarkerStyle(color, isLight);
+            marker.setStyle(style);
+        }
+    });
+}
+
+const getMarkerStyle = (color, isLight) => {
+    if (isLight) {
+        return {
+            fillColor: color,
+            color: '#333', // Dark border
+            weight: 1,      // Thinner border
+            opacity: 0.8,
+            fillOpacity: 0.9, // Fuller fill
+            radius: 8
+        };
+    } else {
+        // Dark Mode
+        return {
+            fillColor: color,
+            color: color,   // Glow effect (same color border)
+            weight: 2,      // Thicker border
+            opacity: 1,
+            fillOpacity: 0.6, // Glassy fill
+            radius: 8
+        };
+    }
+};
+
+function addMarkerOnMap(data) {
+    const { lat, lng, category, feeling, comment, audioUrl } = data;
+    const color = CATEGORY_COLORS[category] || '#ffffff';
+    // const iconChar = getCategoryIcon(category); // Not used in circle marker directly, handled in popup header
+    const iconChar = getCategoryIcon(category);
+
+    // Create random simplified address/date simulation if not present
+    const dateStr = new Date().toLocaleDateString('hr-HR');
+    const addressStr = `${lat.toString().slice(0, 7)}, ${lng.toString().slice(0, 7)}`;
+
+    // Comment HTML if exists
+    const commentHtml = comment ? `<p class="popup-comment">"${comment}"</p>` : '';
+
+    const isLight = document.body.classList.contains('light-mode');
+    const style = getMarkerStyle(color, isLight);
+
+    const marker = L.circleMarker([lat, lng], style);
+
+    // Attach metadata for dynamic stats
+    marker.feature = { category, feeling };
+
+    // Sort into Layer Groups
+    let feelingKey = 'neutral';
+    if (feeling.includes('😌')) feelingKey = 'relaxed';
+    else if (feeling.includes('😊')) feelingKey = 'happy';
+    else if (feeling.includes('😖')) feelingKey = 'stressed';
+    else if (feeling.includes('😐')) feelingKey = 'neutral';
+
+    // Add to specific layer group
+    if (feelingLayers[feelingKey]) {
+        feelingLayers[feelingKey].addLayer(marker);
+    } else {
+        map.addLayer(marker);
+    }
+
+    // Store original color for theme switching re-calculation
+    marker.options.originalColor = color;
+
+    // Generate unique ID for this marker's audio container
+    const markerId = `marker-${lat.toString().replace('.', '')}-${lng.toString().replace('.', '')}-${Date.now()}`;
+    const waveContainerId = `wave-${markerId}`;
+
+    const feelingTagHtml = getFeelingTag(feeling); // Generate new tag
+
+    // Create DOM element for popup content
+    const container = document.createElement('div');
+
+    container.innerHTML = `
+        <div class="popup-header">
+            <div class="category-icon">${iconChar}</div>
+            <div class="popup-details">
+                <h3 class="popup-title">Mapa zvuka</h3>
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+                    <span class="popup-category">${category}</span>
+                    ${feelingTagHtml}
+                </div>
+                ${commentHtml}
+            </div>
+        </div>
+        
+        <div class="audio-player">
+            <button class="play-btn">
+                <div class="play-icon"></div>
+                <div class="pause-icon"></div>
+            </button>
+            <div class="progress-container" id="${waveContainerId}">
+                <!-- WaveSurfer renders here -->
+            </div>
+        </div>
+
+        <div class="popup-footer">
+            <span>${addressStr}</span>
+            <span>${dateStr}</span>
+        </div>
+    `;
+
+    // We need to keep track of the ws instance
+    let wavesurfer = null;
+
+    marker.bindPopup(container, {
+        className: 'custom-popup',
+        closeButton: false,
+        minWidth: 300
+    });
+
+    marker.on('popupopen', () => {
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Initialize WaveSurfer when popup opens
+        const waveContainer = document.getElementById(waveContainerId);
+        const playBtn = container.querySelector('.play-btn');
+        const playerContainer = container.querySelector('.audio-player');
+
+        if (!waveContainer) return;
+
+        // Determine colors based on theme
+        const isLight = document.body.classList.contains('light-mode');
+        // High contrast colors
+        const waveColor = isLight ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.2)';
+        const progressColor = isLight ? '#b45309' : '#FFD700'; // Dark Amber (Light Mode) vs Gold (Dark Mode)
+
+        wavesurfer = WaveSurfer.create({
+            container: waveContainer,
+            waveColor: waveColor,
+            progressColor: progressColor,
+            cursorColor: 'transparent',
+            barWidth: 2,
+            barRadius: 2,
+            responsive: true,
+            height: 30, // Fits nicely in our container
+            normalize: true,
+        });
+
+        wavesurfer.load(audioUrl);
+
+        wavesurfer.on('ready', () => {
+            // Optional: Auto-play or just ready state
+        });
+
+        wavesurfer.on('play', () => {
+            playerContainer.classList.add('playing');
+        });
+
+        wavesurfer.on('pause', () => {
+            playerContainer.classList.remove('playing');
+        });
+
+        wavesurfer.on('finish', () => {
+            playerContainer.classList.remove('playing');
+        });
+
+        playBtn.onclick = (e) => {
+            e.stopPropagation();
+            wavesurfer.playPause();
+        };
+    });
+
+    marker.on('popupclose', () => {
+        if (wavesurfer) {
+            wavesurfer.destroy();
+            wavesurfer = null;
+        }
+    });
+
+    markers.push(marker);
+}
+
+function setupFilters() {
+    console.log("Setting up Filters..."); // Debug
+    const buttons = document.querySelectorAll('.filter-btn');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const feelingKey = btn.dataset.feeling;
+            const layer = feelingLayers[feelingKey];
+
+            if (!layer) return;
+
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+                btn.classList.remove('active');
+            } else {
+                map.addLayer(layer);
+                btn.classList.add('active');
+            }
+            // Update stats immediately after filter change
+            updateStatsFromView();
+        });
+    });
+
+    // Init Lucide icons in filters if needed
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+

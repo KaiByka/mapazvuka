@@ -1,0 +1,1151 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-color: #1a1a1a;
+    --text-color: #ffffff;
+    --primary-color: #3b82f6;
+    --secondary-color: #4b5563;
+    --modal-bg: #2d2d2d;
+    --input-bg: #374151;
+    --border-color: #4b5563;
+    --popup-bg: rgba(30, 30, 30, 0.9);
+    --gold: #FFD700;
+}
+
+/* Layout & Map Dimensions */
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    /* Prevent scroll */
+}
+
+#app-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    /* Below UI */
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Custom Popup Styles */
+.custom-popup .leaflet-popup-content-wrapper {
+    background: var(--popup-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+    padding: 0;
+    color: white;
+}
+
+.custom-popup .leaflet-popup-content {
+    margin: 0;
+    padding: 16px;
+    width: 280px !important;
+    /* Force width */
+}
+
+/* Hide tip */
+.custom-popup .leaflet-popup-tip-container {
+    display: none;
+}
+
+/* Popup Header Content */
+.popup-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.category-icon {
+    width: 40px;
+    height: 40px;
+    background-color: var(--gold);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    color: #000;
+}
+
+.popup-details {
+    flex-grow: 1;
+}
+
+.popup-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: white;
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+}
+
+.popup-category {
+    font-size: 0.9rem;
+    color: white;
+    font-weight: 500;
+}
+
+.feeling-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 50px;
+    /* Pill shape */
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+}
+
+.feeling-tag span {
+    position: relative;
+    top: 1px;
+}
+
+/* Dark Mode (Default) Tag Colors */
+.feeling-tag.neutral {
+    color: #9ca3af;
+    border-color: #9ca3af;
+    box-shadow: 0 0 8px rgba(156, 163, 175, 0.25);
+}
+
+.feeling-tag.relaxed {
+    color: #22c55e;
+    border-color: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.25);
+}
+
+.feeling-tag.happy {
+    color: #eab308;
+    border-color: #eab308;
+    box-shadow: 0 0 8px rgba(234, 179, 8, 0.25);
+}
+
+.feeling-tag.stressed {
+    color: #ef4444;
+    border-color: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+}
+
+/* Light Mode Overrides */
+body.light-mode .custom-popup .leaflet-popup-content-wrapper {
+    background: #ffffff;
+    color: #1a1a1a;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .popup-category {
+    color: #4b5563;
+}
+
+body.light-mode .popup-comment {
+    color: #4b5563;
+}
+
+body.light-mode .feeling-tag {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+body.light-mode .popup-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    color: rgba(0, 0, 0, 0.6);
+}
+
+body.light-mode .feeling-tag.neutral {
+    color: #4b5563;
+    border-color: #4b5563;
+    box-shadow: none;
+}
+
+body.light-mode .feeling-tag.relaxed {
+    color: #15803d;
+    border-color: #15803d;
+    box-shadow: 0 0 5px rgba(21, 128, 61, 0.2);
+}
+
+body.light-mode .feeling-tag.happy {
+    color: #ca8a04;
+    border-color: #ca8a04;
+    box-shadow: 0 0 5px rgba(202, 138, 4, 0.2);
+}
+
+body.light-mode .feeling-tag.stressed {
+    color: #b91c1c;
+    border-color: #b91c1c;
+    box-shadow: 0 0 5px rgba(185, 28, 28, 0.2);
+}
+
+body.light-mode .feeling-tag.stressed {
+    color: #b91c1c;
+    border-color: #b91c1c;
+    box-shadow: 0 0 5px rgba(185, 28, 28, 0.2);
+}
+
+/* --- Filters UI --- */
+#filter-container {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    flex-wrap: nowrap;
+    /* Force single line */
+    gap: 6px;
+    /* Smaller gap */
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    padding: 6px 10px;
+    /* Tighter padding */
+    border-radius: 50px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: max-content;
+    /* Expand to fit all items */
+    max-width: 95vw;
+    overflow-x: auto;
+    white-space: nowrap;
+    justify-content: center;
+    /* Center items */
+    transition: all 0.3s ease;
+    scrollbar-width: none;
+    /* Hide scrollbar Firefox */
+}
+
+/* Hide scrollbar Chrome/Safari */
+#filter-container::-webkit-scrollbar {
+    display: none;
+}
+
+body.light-mode #filter-container {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.filter-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #ccc;
+    padding: 3px 6px;
+    /* Very tight padding */
+    border-radius: 50px;
+    /* Fully rounded */
+    font-size: 0.7rem;
+    /* Small text */
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+    opacity: 0.7;
+    /* Slightly more visible inactive */
+    width: fit-content;
+    /* Strictly fit content */
+    flex: 0 0 auto;
+    /* Do not grow or shrink */
+}
+
+/* Active States */
+.filter-btn.active {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.15);
+    font-weight: 700;
+}
+
+/* Specific Colors - ONLY when active */
+.filter-btn.active[data-feeling="relaxed"] {
+    color: #4ade80;
+    /* Bright Green */
+    border-color: #4ade80;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+}
+
+.filter-btn.active[data-feeling="happy"] {
+    color: #facc15;
+    /* Bright Yellow */
+    border-color: #facc15;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
+}
+
+.filter-btn.active[data-feeling="neutral"] {
+    color: #d1d5db;
+    /* Bright Gray */
+    border-color: #d1d5db;
+    box-shadow: 0 0 8px rgba(209, 213, 219, 0.4);
+}
+
+.filter-btn.active[data-feeling="stressed"] {
+    color: #f87171;
+    /* Bright Red */
+    border-color: #f87171;
+    box-shadow: 0 0 8px rgba(248, 113, 113, 0.4);
+}
+
+/* Inactive override (ensure they look dull) */
+.filter-btn:not(.active) {
+    color: #888;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+/* Light Mode Buttons */
+body.light-mode .filter-btn {
+    color: #6b7280;
+    /* Default inactive gray */
+    opacity: 0.7;
+}
+
+body.light-mode .filter-btn.active {
+    opacity: 1;
+    background: #ffffff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .filter-btn[data-feeling="relaxed"].active {
+    color: #15803d;
+    border-color: #15803d;
+}
+
+body.light-mode .filter-btn[data-feeling="happy"].active {
+    color: #ca8a04;
+    border-color: #ca8a04;
+}
+
+body.light-mode .filter-btn[data-feeling="neutral"].active {
+    color: #374151;
+    border-color: #374151;
+}
+
+body.light-mode .filter-btn[data-feeling="stressed"].active {
+    color: #b91c1c;
+    border-color: #b91c1c;
+}
+
+/* Light Mode Content Overrides */
+body.light-mode .popup-title {
+    color: #111827 !important;
+}
+
+body.light-mode .audio-player {
+    background: rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light-mode .play-btn {
+    border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+body.light-mode .play-icon {
+    border-left-color: #333 !important;
+}
+
+body.light-mode .pause-icon {
+    border-left: 2px solid #333 !important;
+    border-right: 2px solid #333 !important;
+}
+
+body.light-mode .popup-footer span {
+    color: #6b7280 !important;
+}
+
+body.light-mode .feeling-tag.stressed {
+    color: #b91c1c;
+    border-color: #b91c1c;
+    box-shadow: 0 0 5px rgba(185, 28, 28, 0.2);
+}
+
+.popup-comment {
+    font-size: 0.85rem;
+    color: #e5e7eb;
+    margin: 6px 0 0 0;
+    font-style: italic;
+    line-height: 1.4;
+    max-height: 60px;
+    overflow-y: auto;
+}
+
+/* Custom Audio Player */
+.audio-player {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.play-btn {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    /* Center the icon horizontally */
+    align-items: center;
+    /* Center the icon vertically */
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.play-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: white;
+}
+
+.play-icon {
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-left: 10px solid white;
+    margin-left: 2px;
+    /* Slight visual correction */
+}
+
+.pause-icon {
+    width: 10px;
+    height: 10px;
+    background: white;
+    display: none;
+    /* Hidden by default */
+}
+
+/* Playing State */
+.audio-player.playing .play-icon {
+    display: none;
+}
+
+.audio-player.playing .pause-icon {
+    display: block;
+}
+
+.progress-container {
+    flex-grow: 1;
+    height: 30px;
+    /* Match wavesurfer height */
+    position: relative;
+    /* WaveSurfer injects its own canvas here */
+}
+
+/* Footer Info */
+.popup-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 8px;
+}
+
+body,
+html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Inter', sans-serif;
+    color: var(--text-color);
+}
+
+#map {
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+}
+
+/* --- Layer Control (General / Light Mode) --- */
+.leaflet-control-layers {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.leaflet-control-layers-toggle {
+    background-color: rgba(255, 255, 255, 0.75) !important;
+    border-radius: 4px;
+    opacity: 0.9;
+    transition: opacity 0.2s, background-color 0.2s;
+    /* Default icon is black, so no filter needed here */
+}
+
+.leaflet-control-layers-toggle:hover {
+    background-color: rgba(255, 255, 255, 1) !important;
+    opacity: 1;
+}
+
+.leaflet-control-layers-expanded {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+    color: #333 !important;
+    padding: 16px !important;
+    border-radius: 16px !important;
+    font-family: 'Inter', sans-serif;
+    min-width: 150px;
+}
+
+/* Light Mode Hover */
+.leaflet-control-layers-base label:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* --- Zoom Control Customization --- */
+.leaflet-control-zoom {
+    border: none !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
+    margin-top: 20px !important;
+    margin-left: 20px !important;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    color: #333 !important;
+    border-radius: 8px !important;
+    width: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(5px);
+    transition: all 0.2s;
+    margin-bottom: 5px !important;
+    /* Spacing between buttons */
+}
+
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+    background-color: white !important;
+    transform: scale(1.05);
+}
+
+/* Dark Mode Zoom Overrides */
+.dark-mode .leaflet-control-zoom-in,
+.dark-mode .leaflet-control-zoom-out {
+    background-color: rgba(30, 30, 30, 0.75) !important;
+    color: var(--gold) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.dark-mode .leaflet-control-zoom-in:hover,
+.dark-mode .leaflet-control-zoom-out:hover {
+    background-color: rgba(50, 50, 50, 0.9) !important;
+    border-color: var(--gold) !important;
+}
+
+/* Locate Button */
+#locate-btn {
+    position: absolute;
+    top: 130px;
+    /* Below Zoom controls */
+    left: 20px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s;
+    padding: 0;
+}
+
+#locate-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+#locate-btn:hover {
+    background-color: white;
+    transform: scale(1.05);
+}
+
+/* Dark Mode Locate Overrides */
+body.dark-mode #locate-btn {
+    background-color: rgba(30, 30, 30, 0.75) !important;
+    color: var(--gold) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+body.dark-mode #locate-btn:hover {
+    background-color: rgba(50, 50, 50, 0.9) !important;
+    border-color: var(--gold) !important;
+}
+
+/* Custom Layer Control for Dark Mode */
+.dark-mode .leaflet-control-layers {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.dark-mode .leaflet-control-layers-toggle {
+    background-color: rgba(30, 30, 30, 0.75) !important;
+    /* Dark background */
+    filter: invert(1);
+    /* Invert black icon to white */
+    border-radius: 4px;
+    opacity: 0.75;
+    transition: opacity 0.2s;
+}
+
+.dark-mode .leaflet-control-layers-toggle:hover {
+    opacity: 1;
+    background-color: rgba(50, 50, 50, 0.9);
+}
+
+/* When expanded in dark mode, override colors */
+.dark-mode .leaflet-control-layers-expanded {
+    background: var(--popup-bg) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6) !important;
+    color: white !important;
+}
+
+/* Layer label styling */
+.leaflet-control-layers-base label {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.95rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.dark-mode .leaflet-control-layers-base label:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.leaflet-control-layers-base input[type="radio"] {
+    accent-color: var(--gold);
+    /* Custom radio color */
+    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Hide separator if present */
+.leaflet-control-layers-separator {
+    display: none;
+}
+
+#about-btn {
+    position: absolute;
+    bottom: 25px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: transparent;
+    /* No background */
+    color: var(--gold);
+    border: none;
+    /* No border */
+    cursor: pointer;
+    z-index: 1000;
+    backdrop-filter: none;
+    /* No blur */
+    box-shadow: none;
+    /* No shadow */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.2s, opacity 0.2s;
+    opacity: 0.3;
+    /* 70% transparent */
+    padding: 0;
+}
+
+#about-btn svg {
+    width: 40px;
+    height: 40px;
+}
+
+#about-btn:hover {
+    transform: scale(1.1);
+    opacity: 0.8;
+    /* More visible on hover */
+    background: transparent;
+    border-color: transparent;
+}
+
+/* For light map backgrounds */
+#about-btn.dark-icon {
+    color: #333333;
+    /* Dark gray for light maps */
+    font-weight: bold;
+}
+
+.glass-modal {
+    background: var(--popup-bg) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6) !important;
+    color: white !important;
+}
+
+#app-logo {
+    position: absolute;
+    bottom: 25px;
+    left: 20px;
+    width: 60px;
+    /* Slight adjust for spiral shape */
+    opacity: 0.5;
+    /* Requested 50% */
+    z-index: 1000;
+    pointer-events: none;
+    transition: filter 0.3s ease;
+}
+
+.invert-white {
+    filter: invert(1) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(2px);
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background-color: var(--modal-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    position: relative;
+    border: 1px solid var(--border-color);
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    color: #aaa;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-btn:hover {
+    color: #fff;
+}
+
+h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: #d1d5db;
+}
+
+select,
+input {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    font-size: 1rem;
+    box-sizing: border-box;
+    /* Fix padding issues */
+}
+
+select:focus,
+input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+button {
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.primary-btn:hover {
+    background-color: #2563eb;
+}
+
+.secondary-btn {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.secondary-btn:hover {
+    background-color: #374151;
+}
+
+#upload-status {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #10b981;
+    /* Green for success */
+}
+
+/* Recorder Styles */
+.recording-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.recorder-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.record-btn {
+    background-color: #ef4444;
+    /* Red */
+    color: white;
+    width: auto;
+    flex-grow: 1;
+}
+
+.record-btn:hover {
+    background-color: #dc2626;
+}
+
+.stop-btn {
+    background-color: #333;
+    color: white;
+    width: auto;
+    flex-grow: 1;
+    border: 1px solid #555;
+}
+
+.pulse-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background-color: #ef4444;
+    border-radius: 50%;
+    margin-right: 5px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.5);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+#recording-indicator {
+    color: #ef4444;
+    font-weight: bold;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+}
+
+#audio-preview {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.separator {
+    text-align: center;
+    color: #aaa;
+    font-size: 0.85rem;
+    margin: 5px 0;
+    position: relative;
+}
+
+.separator::before,
+.separator::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.separator::before {
+    left: 0;
+}
+
+.separator::after {
+    right: 0;
+}
+
+/* Modal Content Styles - Ensure max-height for scrolling if form grows */
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.leaflet-popup-content-wrapper {
+    background-color: var(--modal-bg);
+    color: var(--text-color);
+    border-radius: 8px;
+}
+
+.leaflet-popup-tip {
+    background-color: var(--modal-bg);
+}
+
+.leaflet-popup-content {
+    margin: 15px;
+    line-height: 1.5;
+}
+
+.popup-category {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.popup-feeling {
+    font-size: 1.5em;
+}
+
+audio {
+    width: 100%;
+    margin-top: 10px;
+}
+
+/* --- Splash Screen --- */
+#splash-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    /* Transparent Overlay */
+    backdrop-filter: blur(5px);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.5s ease-out, visibility 0.5s;
+}
+
+#splash-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.splash-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.splash-logo {
+    width: 80px;
+    height: 80px;
+    filter: invert(1);
+    animation: pulse 2s infinite;
+}
+
+.loader {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* --- Status Bar --- */
+#status-bar {
+    position: fixed;
+    bottom: 25px;
+    /* Aligned with logo/about button */
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    /* Fit content */
+    min-width: 320px;
+    height: 36px;
+    background-color: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 900;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    padding: 0 20px;
+    border-radius: 50px;
+    /* Pill shape */
+    color: #eee;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+body.light-mode #status-bar {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.stat-highlight {
+    font-weight: 700;
+    color: var(--gold);
+}
+
+body.light-mode .stat-highlight {
+    color: var(--primary-color);
+}
+
+.separator-dot {
+    color: rgba(255, 255, 255, 0.2);
+    font-size: 0.8rem;
+}
+
+/* --- App Logo --- */
+#app-logo {
+    position: fixed;
+    bottom: 25px;
+    left: 25px;
+    width: 50px;
+    height: 50px;
+    background-color: #FFD700 !important;
+    /* Force Yellow */
+    -webkit-mask: url('logo.png') no-repeat center / contain;
+    mask: url('logo.png') no-repeat center / contain;
+    z-index: 900;
+    pointer-events: none;
+    /* Let clicks pass through if needed */
+    transition: transform 0.3s ease;
+}
+
+/* Optional: Hover effect */
+#app-logo:hover {
+    transform: scale(1.1) rotate(5deg);
+}
+
+body.light-mode #app-logo {
+    background-color: #eab308;
+    /* Slightly darker gold for light mode visibility */
+}

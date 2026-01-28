@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="hr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa zvuka | Odjek naše svakodnevice</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Google Fonts -->
+    <link rel="icon" type="image/png" href="logo.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <div class="splash-content">
+            <img src="logo.png" alt="Logo" class="splash-logo">
+            <div class="loader"></div>
+            <p>Mapa zvuka</p>
+            <p style="font-size: 0.8rem; opacity: 0.7;">Odjek naše svakodnevice</p>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <!-- Filters Overlay -->
+        <div id="filter-container">
+            <button class="filter-btn active" data-feeling="relaxed" data-label="Opušteno">
+                <i data-lucide="smile"></i> Opušteno
+            </button>
+            <button class="filter-btn active" data-feeling="happy" data-label="Sretno">
+                <i data-lucide="sun"></i> Sretno
+            </button>
+            <button class="filter-btn active" data-feeling="neutral" data-label="Neutralno">
+                <i data-lucide="meh"></i> Neutralno
+            </button>
+            <button class="filter-btn active" data-feeling="stressed" data-label="Stresno">
+                <i data-lucide="alert-octagon"></i> Stresno
+            </button>
+        </div>
+
+        <div id="status-bar">
+            Učitavanje statistike...
+        </div>
+
+        <div id="map"></div>
+        <div id="app-logo"></div> <!-- Changed to div for CSS masking -->
+
+        <!-- Hidden Form Modal -->
+        <div id="sound-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close-btn">&times;</span>
+                <h2>Dodaj zvuk</h2>
+                <form id="sound-form">
+                    <input type="hidden" id="lat" name="lat">
+                    <input type="hidden" id="lng" name="lng">
+                    <input type="hidden" id="audioUrl" name="audioUrl">
+
+                    <div class="form-group">
+                        <label>Kategorija:</label>
+                        <select id="category" name="category" required>
+                            <option value="Priroda">Priroda</option>
+                            <option value="Voda">Voda</option>
+                            <option value="Ljudi">Ljudi</option>
+                            <option value="Buka">Buka</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Osjećaj:</label>
+                        <select id="feeling" name="feeling" required>
+                            <option value="😌">Opušteno (😌)</option>
+                            <option value="😊">Sretno (😊)</option>
+                            <option value="😐">Neutralno (😐)</option>
+                            <option value="😖">Stresno (😖)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Komentar (opcionalno):</label>
+                        <textarea id="comment" name="comment" maxlength="300" rows="3"
+                            placeholder="Opišite zvuk ili trenutak..."
+                            style="width: 100%; border-radius: 6px; padding: 0.75rem; background-color: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); font-family: 'Inter', sans-serif; resize: vertical;"></textarea>
+                    </div>
+
+                    <div class="form-group recording-section">
+                        <label>Snimite zvuk:</label>
+                        <div class="recorder-controls">
+                            <button type="button" id="record-btn" class="record-btn">
+                                <span class="mic-icon">🎙️</span> Snimi
+                            </button>
+                            <button type="button" id="stop-btn" class="stop-btn hidden">
+                                <span class="stop-icon">⏹️</span> Stani
+                            </button>
+                            <span id="recording-indicator" class="hidden"><span class="pulse-dot"></span>
+                                Snimanje...</span>
+                        </div>
+
+                        <audio id="audio-preview" controls class="hidden"></audio>
+
+                        <div class="separator">ili</div>
+
+                        <button type="button" id="upload-btn" class="secondary-btn">Odaberi datoteku (Upload)</button>
+                        <span id="upload-status"></span>
+                    </div>
+
+                    <button type="submit" class="primary-btn" disabled id="submit-btn" style="opacity: 0.5;">Spremi
+                        lokaciju</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Locate Button -->
+        <button id="locate-btn" aria-label="Moja lokacija">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+            </svg>
+        </button>
+
+        <!-- About Button -->
+        <button id="about-btn" aria-label="O projektu">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+        </button>
+
+        <!-- About Modal -->
+        <div id="about-modal" class="modal hidden">
+            <div class="modal-content glass-modal">
+                <span class="close-btn about-close">&times;</span>
+                <h2>O projektu</h2>
+                <p style="line-height: 1.6; color: #98FF98;">
+                    Ovo nije obična karta. Ovo je zvučni arhiv našeg svakodnevnog života.
+                    Od mira skrivenih parkova do kaosa glavnih raskrižja, svaki zvuk priča priču o tome kako
+                    doživljavamo
+                    prostor oko sebe.
+                    <br><br>
+                    <strong>Postani zvučni istraživač:</strong> snimi trenutak, odaberi emociju i pomozi nam mapirati
+                    zvučnu
+                    dušu grada.
+                </p>
+            </div>
+        </div>
+
+        <!-- Leaflet JS -->
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+        <!-- Cloudinary Widget -->
+        <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
+        <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+        <!-- Lucide Icons -->
+        <script src="https://unpkg.com/lucide@latest"></script>
+
+        <script src="config.js"></script>
+        <script src="main.js"></script>
+</body>
+
+</html>
