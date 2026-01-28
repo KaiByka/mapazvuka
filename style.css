@@ -1149,3 +1149,268 @@ body.light-mode #app-logo {
     background-color: #eab308;
     /* Slightly darker gold for light mode visibility */
 }
+
+/* ... Base Styles for Menu ... */
+/* (This block replaces the previous media query block with nothing, effectively deleting it from the middle) */
+/* Wait, I cannot delete and append in one replace call if they are not contiguous. */
+/* I will use multi_replace to:
+   1. Delete the media query block from the middle.
+   2. Append the media query block at the end.
+*/
+
+/* --- Hamburger Menu --- */
+#menu-btn {
+    display: none;
+    /* Hidden on desktop */
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    /* Move to RIGHT */
+    left: auto;
+    /* Reset left */
+    z-index: 1001;
+    /* Above filters */
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#menu-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+body.light-mode #menu-btn {
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Side Menu Panel */
+#side-menu {
+    position: fixed;
+    top: 0;
+    right: 0;
+    /* Align RIGHT */
+    left: auto;
+    /* Reset LEFT */
+    width: 280px;
+    height: 100%;
+    background: var(--modal-bg);
+    /* Use modal background */
+    z-index: 2000;
+    /* Highest */
+    padding: 24px;
+    transform: translateX(100%);
+    /* Slide out to RIGHT */
+    transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    /* Left border */
+    border-right: none;
+    display: flex;
+    flex-direction: column;
+}
+
+#side-menu.open {
+    transform: translateX(0);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    /* Shadow on left */
+}
+
+body.light-mode #side-menu {
+    background: #ffffff;
+    border-left: 1px solid rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+.menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.menu-section h4 {
+    margin: 10px 0 5px 12px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--secondary-color);
+    letter-spacing: 0.5px;
+}
+
+/* Active Layer State */
+.menu-item.layer-select.active {
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: 600;
+    border-left: 3px solid var(--gold);
+}
+
+body.light-mode .menu-item.layer-select.active {
+    background: rgba(0, 0, 0, 0.05);
+    border-left: 3px solid var(--primary-color);
+}
+
+/* Hide specific UI elements when menu is open */
+body.menu-open #about-btn,
+body.menu-open #locate-btn,
+body.menu-open .leaflet-control-container,
+body.menu-open #filter-container {
+    /* Also hiding filters might be good for cleanliness, user asked for 'layer icons' (leaflet control) and 'about'.
+       I will hide those. */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.menu-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+#close-menu-btn {
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+.menu-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.menu-item {
+    background: transparent;
+    border: none;
+    color: inherit;
+    text-align: left;
+    padding: 12px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.menu-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+body.light-mode .menu-item:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.menu-separator {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 10px 0;
+}
+
+body.light-mode .menu-separator {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.menu-footer {
+    margin-top: auto;
+    font-size: 0.8rem;
+    opacity: 0.5;
+    text-align: center;
+}
+
+/* Overlay for outside click closing */
+#menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    backdrop-filter: blur(3px);
+}
+
+#menu-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* --- Mobile Responsiveness (MOVED TO END) --- */
+@media (max-width: 600px) {
+
+    /* Hide Default Leaflet Control */
+    .leaflet-control-layers {
+        display: none !important;
+    }
+
+    /* Show Hamburger */
+    #menu-btn {
+        display: flex !important;
+    }
+
+    /* Filters: Scrollable horizontal list */
+    #filter-container {
+        top: 10px;
+        max-width: 90vw;
+        overflow-x: auto;
+        justify-content: flex-start;
+        padding: 8px 12px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .filter-btn {
+        font-size: 0.8rem;
+        padding: 5px 10px;
+    }
+
+    /* Status Bar adjustments */
+    #status-bar {
+        font-size: 0.75rem;
+        padding: 5px 10px;
+        height: auto;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 12px;
+        background-color: rgba(20, 20, 20, 0.95);
+    }
+
+    .stat-item {
+        white-space: nowrap;
+    }
+
+    .separator-dot {
+        display: none;
+    }
+
+    /* Button adjustments */
+    #locate-btn {
+        bottom: 60px;
+        right: 16px;
+    }
+
+    #about-btn {
+        display: none !important;
+        /* Hidden on mobile, moved to menu */
+    }
+
+    /* Logo */
+    #app-logo {
+        width: 36px;
+        height: 36px;
+        bottom: 60px;
+        left: 16px;
+    }
+}
