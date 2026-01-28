@@ -112,54 +112,194 @@ function initMap() {
     // Add default control (CSS will hide it on mobile)
     L.control.layers(baseMapsDesktop).addTo(map);
 
-    // 5. Click Event
-    map.on('click', onMapClick);
+    // 5. Click Event (Disabled for Long Press)
+    // map.on('click', onMapClick);
+
+    // 6. Long Press Setup
+    setupLongPressInteraction();
 
     // 6. Dynamic Logo & Icon Coloring
     const logo = document.getElementById('app-logo');
     const aboutBtn = document.getElementById('about-btn');
 
-    // Initial State (Dark Matter is default)
-    logo.classList.add('invert-white');
-    document.body.classList.add('dark-mode');
+    // ... (keep existing theme logic) ...
 
     map.on('baselayerchange', (e) => {
-        console.log("Layer changed to:", e.name); // Debug Log
+        // ... (keep existing logic) ...
         const isLight = e.name !== 'Dark Matter';
-
         if (!isLight) { // Dark Mode
             logo.classList.add('invert-white');
-            aboutBtn.classList.remove('dark-icon');
+            if (aboutBtn) aboutBtn.classList.remove('dark-icon');
             document.body.classList.add('dark-mode');
             document.body.classList.remove('light-mode');
-        } else { // Light Mode
+        } else {
             logo.classList.remove('invert-white');
-            aboutBtn.classList.add('dark-icon');
+            if (aboutBtn) aboutBtn.classList.add('dark-icon');
             document.body.classList.remove('dark-mode');
             document.body.classList.add('light-mode');
         }
-
         updateMarkerStyles(isLight);
     });
 
     setupFilters();
 }
 
-// --- Map Interaction ---
-function onMapClick(e) {
-    const { lat, lng } = e.latlng;
+// --- Long Press Interaction ---
+function setupLongPressInteraction() {
+    let pressTimer;
+    let isPressing = false;
+    let startX, startY;
+    const PRESS_DURATION = 800;
+    const MOVE_TOLERANCE = 15;
+    const mapContainer = document.getElementById('map');
 
-    // Remove existing temp marker if any
-    if (tempMarker) {
-        map.removeLayer(tempMarker);
-    }
+    const startPress = (e) => {
+        // Ignore if target is control, popup, or marker
+        if (e.target.closest('.leaflet-control-container') ||
+            e.target.closest('.leaflet-popup-pane') ||
+            e.target.closest('.leaflet-marker-icon')) return;
 
-    // Add new temp marker
+        isPressing = true;
+        // Handle Mouse or Touch
+        const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+        const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+
+        startX = clientX;
+        startY = clientY;
+
+        // Visual Feedback
+        showLongPressIndicator(startX, startY);
+
+        pressTimer = setTimeout(() => {
+            if (isPressing) {
+                triggerLongPressSuccess(startX, startY);
+            }
+        }, PRESS_DURATION);
+    };
+
+    const cancelPress = () => {
+        if (!isPressing) return;
+        isPressing = false;
+        clearTimeout(pressTimer);
+        hideLongPressIndicator();
+    };
+
+    const movePress = (e) => {
+        if (!isPressing) return;
+        const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+        const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+
+        const dist = Math.hypot(clientX - startX, clientY - startY);
+        if (dist > MOVE_TOLERANCE) {
+            cancelPress();
+        }
+    };
+
+    // Attach DOM Events to Map Container
+    mapContainer.addEventListener('mousedown', startPress);
+    mapContainer.addEventListener('touchstart', startPress, { passive: true });
+
+    mapContainer.addEventListener('mouseup', cancelPress);
+    mapContainer.addEventListener('mouseleave', cancelPress);
+    mapContainer.addEventListener('touchend', cancelPress);
+    mapContainer.addEventListener('touchcancel', cancelPress);
+
+    // Use window for move to catch fast movements out of element? No, map covers.
+    mapContainer.addEventListener('mousemove', movePress);
+    mapContainer.addEventListener('touchmove', movePress, { passive: true });
+
+    // Leaflet Events to Cancel
+    map.on('dragstart', cancelPress);
+    map.on('zoomstart', cancelPress);
+    map.on('movestart', cancelPress);
+}
+
+function showLongPressIndicator(x, y) {
+    const indicator = document.createElement('div');
+    indicator.className = 'long-press-indicator';
+    indicator.style.left = x + 'px';
+    indicator.style.top = y + 'px';
+    document.body.appendChild(indicator);
+
+    // Force reflow
+    indicator.offsetHeight;
+
+    // Add expanding class
+    setTimeout(() => indicator.classList.add('expanding'), 10);
+}
+
+function hideLongPressIndicator() {
+    const indicators = document.querySelectorAll('.long-press-indicator');
+    indicators.forEach(el => el.remove());
+}
+
+function triggerLongPressSuccess(x, y) {
+    isPressing = false;
+    hideLongPressIndicator();
+
+    // Haptic Feedback
+    if (navigator.vibrate) navigator.vibrate(50); // Short pulse
+
+    // Convert Screen Coords to Map LatLng
+    const mapRect = document.getElementById('map').getBoundingClientRect();
+    const relativeX = x - mapRect.left;
+    const relativeY = y - mapRect.top;
+
+    // Use Leaflet containerPointToLatLng
+    const latlng = map.containerPointToLatLng([relativeX, relativeY]);
+
+    // Handle New Location Logic
+    handleNewLocation(latlng);
+}
+
+function handleNewLocation(latlng) {
+    const { lat, lng } = latlng;
+
+    // Remove existing temp marker
+    if (tempMarker) map.removeLayer(tempMarker);
+
+    // Add new temp marker (Pin Drop)
     tempMarker = L.marker([lat, lng]).addTo(map);
 
-    // Open Modal
-    openModal(lat, lng);
+    // Open Bottom Sheet
+    openBottomSheet(lat, lng);
 }
+
+// --- Sheet/Modal Logic ---
+function openBottomSheet(lat, lng) {
+    document.getElementById('lat') ? document.getElementById('lat').value = lat : null; // Safety check if IDs differ
+    document.getElementById('lng') ? document.getElementById('lng').value = lng : null;
+
+    // Update hidden inputs in reformatted HTML forms
+    document.getElementById('marker-lat').value = lat;
+    document.getElementById('marker-lng').value = lng;
+
+    const sheet = document.getElementById('input-sheet');
+    const overlay = document.getElementById('sheet-overlay');
+
+    sheet.classList.add('active');
+    overlay.classList.remove('hidden');
+    document.body.classList.add('sheet-open');
+}
+
+function closeBottomSheet() {
+    const sheet = document.getElementById('input-sheet');
+    const overlay = document.getElementById('sheet-overlay');
+
+    sheet.classList.remove('active');
+    overlay.classList.add('hidden');
+    document.body.classList.remove('sheet-open');
+
+    // Remove temp marker if operation cancelled? 
+    // Usually yes, unless saved. But let's keep it until new one placed or user clears.
+    // Ideally remove temp marker.
+    if (tempMarker) {
+        map.removeLayer(tempMarker);
+        tempMarker = null;
+    }
+}
+// OLD: onMapClick (Removed/Unused)
+// function onMapClick(e) { ... }
 
 // --- Cloudinary ---
 let cloudinaryWidget;
@@ -318,22 +458,25 @@ function handleUploadSuccess(info) {
 }
 
 // --- User Interface ---
-const modal = document.getElementById('sound-modal');
-const form = document.getElementById('sound-form');
-const closeBtn = document.querySelector('.close-btn');
+// --- User Interface ---
+// const modal = document.getElementById('sound-modal'); // Legacy
+const form = document.getElementById('add-marker-form');
+// const closeBtn = document.querySelector('.close-btn'); // Legacy
 
 function setupUI() {
     console.log("Setting up UI..."); // Debug Log
-    closeBtn.addEventListener('click', closeModal);
+    // closeBtn.addEventListener('click', closeModal); // Legacy
 
-    // Close modal on outside click
+    /*
+    // Close modal on outside click (Handled by sheet logic now)
     window.addEventListener('click', (event) => {
         if (event.target === modal) {
             closeModal();
         }
     });
+    */
 
-    form.addEventListener('submit', handleFormSubmit);
+    if (form) form.addEventListener('submit', handleFormSubmit);
 
     // About Modal Logic
     const aboutBtn = document.getElementById('about-btn');
@@ -356,7 +499,17 @@ function setupUI() {
             aboutModal.classList.add('hidden');
         }
     });
-    // --- Side Menu Logic ---
+    // --- Bottom Sheet Logic ---
+    // --- Bottom Sheet Logic ---
+    // Use delegation for robustness
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#close-sheet-btn') || e.target.id === 'sheet-overlay') {
+            e.preventDefault();
+            closeBottomSheet();
+        }
+    });
+
+    // Keep sidebar logic...
     const menuBtn = document.getElementById('menu-btn');
     const sideMenu = document.getElementById('side-menu');
     const closeMenuBtn = document.getElementById('close-menu-btn');
@@ -514,32 +667,43 @@ function setupUI() {
 }
 
 function openModal(lat, lng) {
-    document.getElementById('lat').value = lat;
-    document.getElementById('lng').value = lng;
+    // Redirect to Bottom Sheet
+    openBottomSheet(lat, lng);
 
-    // Reset form
+    // Reset specific new form elements if needed (Sheet logic might handle values, but UI reset is good)
     form.reset();
     document.getElementById('upload-status').textContent = '';
     document.getElementById('audioUrl').value = '';
-    document.getElementById('submit-btn').disabled = true;
-    document.getElementById('submit-btn').style.opacity = '0.5';
+    const submitBtn = document.getElementById('submit-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+    }
 
     // Reset Recorder UI
-    document.getElementById('audio-preview').classList.add('hidden');
-    document.getElementById('audio-preview').src = "";
-    document.getElementById('record-btn').classList.remove('hidden');
-    document.getElementById('record-btn').innerHTML = '<span class="mic-icon">🎙️</span> Snimi';
-    document.getElementById('stop-btn').classList.add('hidden');
-    document.getElementById('recording-indicator').classList.add('hidden');
-    recordedBlob = null;
+    const audioPreview = document.getElementById('audio-preview');
+    if (audioPreview) {
+        audioPreview.classList.add('hidden');
+        audioPreview.src = "";
+    }
+    const recordBtn = document.getElementById('record-btn');
+    if (recordBtn) {
+        recordBtn.classList.remove('hidden');
+        recordBtn.innerHTML = '<span class="mic-icon">🎙️</span> Snimi';
+    }
+    const stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) stopBtn.classList.add('hidden');
+    const recIndicator = document.getElementById('recording-indicator');
+    if (recIndicator) recIndicator.classList.add('hidden');
 
-    modal.classList.remove('hidden');
+    recordedBlob = null;
 }
 
 function closeModal() {
-    modal.classList.add('hidden');
-    // If recording is active, stop it?
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
+    // Redirect to Bottom Sheet Close
+    closeBottomSheet();
+    // Stop recording if active
+    if (typeof mediaRecorder !== 'undefined' && mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
     }
 }

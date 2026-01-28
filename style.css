@@ -742,10 +742,109 @@ body.dark-mode #locate-btn:hover {
     filter: invert(1) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
+/* --- Input Sheet (Responsive) --- */
+/* Desktop Default: Centered Modal */
+.bottom-sheet {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    /* Start slightly smaller for effect */
+    background: var(--modal-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    z-index: 3001;
+    border: 1px solid var(--border-color);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    color: white;
+}
+
+.bottom-sheet.active {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: #aaa;
+}
+
+.close-btn:hover {
+    color: white;
+}
+
+/* Hide drag handle on desktop */
+.bottom-sheet::before {
+    display: none;
+}
+
+body.light-mode .bottom-sheet {
+    background: #ffffff;
+    color: #333;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Long Press Indicator (Pulse Ring) */
+.long-press-indicator {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 215, 0, 0.4);
+    transform: translate(-50%, -50%) scale(0);
+    pointer-events: none;
+    z-index: 2000;
+    /* On top of map */
+    width: 80px;
+    height: 80px;
+    border: 2px solid var(--gold);
+    opacity: 1;
+    /* Animation handled in JS via Web Animations or transition, but let's use CSS class triggering */
+    transition: transform 0.8s ease-out, opacity 0.8s ease-out;
+}
+
+.long-press-indicator.expanding {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+}
+
+/* Hide Status Bar when Bottom Sheet is active */
+body.sheet-open #status-bar {
+    transform: translateY(-200%);
+    /* Move up out of way? Or just transparent? Status bar is Top or Bottom? bottom. */
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Form Styles Override for Bottom Sheet */
+.bottom-sheet h2 {
+    text-align: center;
+    font-size: 1.25rem;
+    margin-bottom: 20px;
+}
+
+/* Ensure controls are hidden if sheet covers them (handled by sheet z-index), 
+   but Floating Buttons might overlap. */
+body.sheet-open #locate-btn {
+    opacity: 0;
+    pointer-events: none;
+}
+
 /* Modal Styles */
 .modal {
     position: fixed;
-    z-index: 1000;
+    z-index: 3000;
+    /* Higher than sidebar (2000) and hamburger (1001) */
     left: 0;
     top: 0;
     width: 100%;
@@ -1473,5 +1572,66 @@ body.light-mode .menu-separator {
         height: 36px;
         bottom: 60px;
         left: 16px;
+    }
+
+    /* Mobile Modal Adjustments */
+    /* Transform to Bottom Sheet on Mobile */
+    .bottom-sheet {
+        top: auto;
+        /* Reset top */
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-width: 100%;
+        transform: translateY(100%);
+        /* Start hidden below */
+        border-radius: 25px 25px 0 0;
+        background: rgba(15, 15, 15, 0.95);
+        backdrop-filter: blur(15px);
+        border: none;
+        border-top: 1px solid rgba(255, 215, 0, 0.3);
+        height: auto;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .bottom-sheet.active {
+        transform: translateY(0);
+        /* Slide up */
+        opacity: 1;
+        pointer-events: auto !important;
+        /* Force clickable */
+    }
+
+    /* Show drag handle on mobile */
+    .bottom-sheet::before {
+        content: "";
+        display: block;
+        width: 40px;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.2);
+        margin: 0 auto 15px;
+        border-radius: 10px;
+    }
+
+    /* Light mode fixes for mobile sheet */
+    body.light-mode .bottom-sheet {
+        background: rgba(255, 255, 255, 0.95);
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .close-btn {
+        top: 10px;
+        right: 15px;
+        font-size: 28px;
+        /* Larger touch target */
+        background: none;
+        border: none;
+        color: inherit;
+        z-index: 100;
+        /* Ensure on top */
+        cursor: pointer;
     }
 }
