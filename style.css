@@ -1380,58 +1380,61 @@ body.light-mode .menu-separator {
         padding: 0 !important;
         width: 44px;
         height: 44px;
-        border-radius: 50%;
+        border-radius: 0;
+        /* No circle */
         display: flex;
         justify-content: center;
         align-items: center;
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(8px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: transparent !important;
+        /* No bg */
+        backdrop-filter: none;
+        border: none !important;
+        /* No border */
         margin: 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        box-shadow: none !important;
+        /* No shadow */
     }
 
     .filter-btn svg {
-        width: 20px !important;
-        height: 20px !important;
+        width: 24px !important;
+        /* Slightly larger icon */
+        height: 24px !important;
         margin: 0 !important;
+        opacity: 0.5;
+        /* Dim inactive */
+        transition: all 0.3s ease;
     }
 
     /* Active state for vertical bubbles - NEON GLOW */
     .filter-btn.active {
-        background: rgba(0, 0, 0, 0.8);
-        /* Darker bg for contrast */
-        border-width: 2px;
+        background: transparent !important;
+        border-width: 0;
     }
 
-    /* Specific Neon Colors for Mobile Icons */
-    .filter-btn.active[data-feeling="relaxed"] {
-        border-color: #4ade80;
-        box-shadow: 0 0 15px rgba(74, 222, 128, 0.6), inset 0 0 10px rgba(74, 222, 128, 0.2);
-        color: #4ade80;
-    }
-
-    .filter-btn.active[data-feeling="happy"] {
-        border-color: #facc15;
-        box-shadow: 0 0 15px rgba(250, 204, 21, 0.6), inset 0 0 10px rgba(250, 204, 21, 0.2);
-        color: #facc15;
-    }
-
-    .filter-btn.active[data-feeling="neutral"] {
-        border-color: #d1d5db;
-        box-shadow: 0 0 15px rgba(209, 213, 219, 0.6), inset 0 0 10px rgba(209, 213, 219, 0.2);
-        color: #d1d5db;
-    }
-
-    .filter-btn.active[data-feeling="stressed"] {
-        border-color: #f87171;
-        box-shadow: 0 0 15px rgba(248, 113, 113, 0.6), inset 0 0 10px rgba(248, 113, 113, 0.2);
-        color: #f87171;
-    }
-
-    /* Adjust svg stroke for glow effect */
     .filter-btn.active svg {
-        filter: drop-shadow(0 0 2px currentColor);
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    /* Specific Neon Colors for Mobile Icons (Glow on SVG drop-shadow) */
+    .filter-btn.active[data-feeling="relaxed"] svg {
+        color: #4ade80;
+        filter: drop-shadow(0 0 8px #4ade80);
+    }
+
+    .filter-btn.active[data-feeling="happy"] svg {
+        color: #facc15;
+        filter: drop-shadow(0 0 8px #facc15);
+    }
+
+    .filter-btn.active[data-feeling="neutral"] svg {
+        color: #d1d5db;
+        filter: drop-shadow(0 0 8px #d1d5db);
+    }
+
+    .filter-btn.active[data-feeling="stressed"] svg {
+        color: #f87171;
+        filter: drop-shadow(0 0 8px #f87171);
     }
 
     /* Status Bar adjustments */
