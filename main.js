@@ -199,10 +199,11 @@ let audioChunks = [];
 let recordedBlob = null;
 
 function setupRecorder() {
-    console.log("Initializing Recorder..."); // Debug Log
+    console.log("Initializing Recorder...");
 
     const recordBtn = document.getElementById('record-btn');
     const stopBtn = document.getElementById('stop-btn');
+    let currentStream = null; // Track stream globally within closure to ensure we can stop it
 
     if (!recordBtn) {
         console.error("CRITICAL: Record button NOT found in DOM!");
@@ -214,21 +215,15 @@ function setupRecorder() {
     const statusEl = document.getElementById('upload-status');
     const submitBtn = document.getElementById('submit-btn');
 
-    console.log("Recorder elements found, adding listener to:", recordBtn); // Debug Log
-
     recordBtn.addEventListener('click', async () => {
-        console.log("Record button clicked"); // Debug log
-
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            console.error("MediaDevices API not supported"); // Debug log
-            alert("Vaš preglednik ne podržava snimanje zvuka (MediaDevices API). Provjerite koristite li HTTPS ili localhost.");
+            alert("Vaš preglednik ne podržava snimanje zvuka. Koristite HTTPS.");
             return;
         }
 
         try {
-            console.log("Requesting microphone access..."); // Debug log
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            console.log("Microphone access granted"); // Debug log
+            currentStream = stream; // Store reference
 
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
@@ -243,34 +238,45 @@ function setupRecorder() {
             audioPreview.classList.add('hidden');
             audioPreview.src = "";
             recordedBlob = null;
-            document.getElementById('audioUrl').value = ""; // Clear any previous upload
+            document.getElementById('audioUrl').value = "";
 
             mediaRecorder.addEventListener("dataavailable", event => {
                 audioChunks.push(event.data);
             });
 
             mediaRecorder.addEventListener("stop", () => {
-                recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                // Create preview URL
-                const audioUrl = URL.createObjectURL(recordedBlob);
-                audioPreview.src = audioUrl;
-                audioPreview.classList.remove('hidden');
+                try {
+                    recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioUrl = URL.createObjectURL(recordedBlob);
+                    audioPreview.src = audioUrl;
+                    audioPreview.classList.remove('hidden');
 
-                // UI Updates
+                    statusEl.textContent = "Zvuk snimljen! Spremno za spremanje.";
+                    statusEl.style.color = "#FFD700";
+
+                    // Stop all tracks to release mic
+                    if (currentStream) {
+                        currentStream.getTracks().forEach(track => track.stop());
+                    }
+                } catch (e) {
+                    console.error("Error processing recording:", e);
+                    statusEl.textContent = "Greška pri obradi snimke.";
+                    statusEl.style.color = "red";
+                }
+
+                // UI Reset
                 stopBtn.classList.add('hidden');
                 recordBtn.classList.remove('hidden');
                 indicator.classList.add('hidden');
                 recordBtn.innerHTML = '<span class="mic-icon">🔄</span> Snimi ponovno';
-
-                statusEl.textContent = "Zvuk snimljen! Spremno za spremanje.";
-                statusEl.style.color = "#FFD700";
-
-                // Enable submit
                 submitBtn.disabled = false;
                 submitBtn.style.opacity = '1';
+            });
 
-                // Stop all tracks to release mic
-                stream.getTracks().forEach(track => track.stop());
+            // Handle Recording Errors
+            mediaRecorder.addEventListener("error", (e) => {
+                console.error("MediaRecorder Error:", e);
+                alert("Došlo je do greške prilikom snimanja.");
             });
 
         } catch (err) {
@@ -280,8 +286,12 @@ function setupRecorder() {
     });
 
     stopBtn.addEventListener('click', () => {
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();
+        try {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        } catch (e) {
+            console.error("Error stopping recorder:", e);
         }
     });
 }
