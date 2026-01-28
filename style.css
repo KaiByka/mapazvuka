@@ -1353,20 +1353,60 @@ body.light-mode .menu-separator {
         display: flex !important;
     }
 
-    /* Filters: Scrollable horizontal list */
+    /* Filters: Vertical right-aligned icons */
     #filter-container {
-        top: 10px;
-        max-width: 90vw;
-        overflow-x: auto;
-        justify-content: flex-start;
-        padding: 8px 12px;
-        -webkit-overflow-scrolling: touch;
+        top: 80px;
+        /* Below Hamburger (20+44+16 approx) */
+        right: 20px;
+        left: auto;
+        transform: none;
+        flex-direction: column;
+        width: auto;
+        max-width: unset;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        gap: 12px;
+        align-items: flex-end;
+        /* Align to right */
+        overflow: visible;
+        /* No scroll needed */
     }
 
     .filter-btn {
-        font-size: 0.8rem;
-        padding: 5px 10px;
+        font-size: 0 !important;
+        /* Hide text */
+        padding: 0 !important;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        margin: 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
     }
+
+    .filter-btn svg {
+        width: 20px !important;
+        height: 20px !important;
+        margin: 0 !important;
+    }
+
+    /* Active state for vertical bubbles */
+    .filter-btn.active {
+        background: rgba(255, 255, 255, 0.9);
+        color: #000;
+        border-color: transparent;
+    }
+
+    /* Specific colors for active state still apply from main block, 
+       but we might want to override border or glow? 
+       For now, let the color coding work on the active bg/border rules already defined. */
 
     /* Status Bar adjustments */
     #status-bar {
