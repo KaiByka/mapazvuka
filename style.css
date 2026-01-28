@@ -1150,14 +1150,6 @@ body.light-mode #app-logo {
     /* Slightly darker gold for light mode visibility */
 }
 
-/* ... Base Styles for Menu ... */
-/* (This block replaces the previous media query block with nothing, effectively deleting it from the middle) */
-/* Wait, I cannot delete and append in one replace call if they are not contiguous. */
-/* I will use multi_replace to:
-   1. Delete the media query block from the middle.
-   2. Append the media query block at the end.
-*/
-
 /* --- Hamburger Menu --- */
 #menu-btn {
     display: none;
