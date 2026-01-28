@@ -355,7 +355,7 @@ function setupRecorder() {
 
     recordBtn.addEventListener('click', async () => {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert("Vaš preglednik ne podržava snimanje zvuka. Koristite HTTPS.");
+            alert("Vaš preglednik ne podržava snimanje zvuka. Koristite HTTPS ili noviji uređaj.");
             return;
         }
 
@@ -363,7 +363,25 @@ function setupRecorder() {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             currentStream = stream; // Store reference
 
-            mediaRecorder = new MediaRecorder(stream);
+            // Detect supported MIME type
+            let options = {};
+            if (MediaRecorder.isTypeSupported('audio/webm')) {
+                options = { mimeType: 'audio/webm' };
+            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                options = { mimeType: 'audio/mp4' };
+            } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+                options = { mimeType: 'audio/aac' };
+            } else {
+                console.log("Using default MediaRecorder settings (no specific MIME type found).");
+            }
+
+            try {
+                mediaRecorder = new MediaRecorder(stream, options);
+            } catch (e) {
+                console.error("Failed to create MediaRecorder with options, trying default:", e);
+                mediaRecorder = new MediaRecorder(stream);
+            }
+
             audioChunks = [];
 
             mediaRecorder.start();
@@ -379,12 +397,17 @@ function setupRecorder() {
             document.getElementById('audioUrl').value = "";
 
             mediaRecorder.addEventListener("dataavailable", event => {
-                audioChunks.push(event.data);
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
             });
 
             mediaRecorder.addEventListener("stop", () => {
                 try {
-                    recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    // Use the actual mime type from the recorder if available, or fall back
+                    const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                    recordedBlob = new Blob(audioChunks, { type: mimeType });
+
                     const audioUrl = URL.createObjectURL(recordedBlob);
                     audioPreview.src = audioUrl;
                     audioPreview.classList.remove('hidden');
@@ -398,7 +421,7 @@ function setupRecorder() {
                     }
                 } catch (e) {
                     console.error("Error processing recording:", e);
-                    statusEl.textContent = "Greška pri obradi snimke.";
+                    statusEl.textContent = "Greška pri obradi snimke: " + e.message;
                     statusEl.style.color = "red";
                 }
 
@@ -414,12 +437,20 @@ function setupRecorder() {
             // Handle Recording Errors
             mediaRecorder.addEventListener("error", (e) => {
                 console.error("MediaRecorder Error:", e);
-                alert("Došlo je do greške prilikom snimanja.");
+                const errorMsg = e.error ? e.error.message : (e.message || "Nepoznata greška");
+                alert("Greška snimača: " + errorMsg + "\nTip: " + (mediaRecorder.mimeType || 'default'));
             });
 
         } catch (err) {
             console.error("Error accessing microphone:", err);
-            alert("Greška pri pristupu mikrofonu. Provjerite dozvole.");
+            // Specifically detect legacy iOS or permission issues
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                alert("Pristup mikrofonu odbijen. Molimo dozvolite pristup u postavkama preglednika.");
+            } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                alert("Mikrofon nije pronađen.");
+            } else {
+                alert("Greška pri pristupu mikrofonu: " + err.message);
+            }
         }
     });
 
@@ -725,8 +756,11 @@ async function handleFormSubmit(e) {
 
             const result = await response.json();
             if (result.secure_url) {
-                document.getElementById('audioUrl').value = result.secure_url;
-                console.log("Recorded audio uploaded:", result.secure_url);
+                // Force .mp3 extension for universal compatibility
+                // Cloudinary will automatically transcode if we request a different extension
+                const safeUrl = result.secure_url.replace(/\.[^/.]+$/, ".mp3");
+                document.getElementById('audioUrl').value = safeUrl;
+                console.log("Recorded audio uploaded:", safeUrl);
             } else {
                 throw new Error("Cloudinary upload failed");
             }
