@@ -247,12 +247,6 @@ function triggerLongPressSuccess(x, y) {
 
     // Use Leaflet containerPointToLatLng
     const latlng = map.containerPointToLatLng([relativeX, relativeY]);
-
-    // Handle New Location Logic
-    handleNewLocation(latlng);
-}
-
-function handleNewLocation(latlng) {
     const { lat, lng } = latlng;
 
     // Remove existing temp marker
@@ -261,16 +255,7 @@ function handleNewLocation(latlng) {
     // Add new temp marker (Pin Drop)
     tempMarker = L.marker([lat, lng]).addTo(map);
 
-    // Open Bottom Sheet
-    openBottomSheet(lat, lng);
-}
-
-// --- Sheet/Modal Logic ---
-function openBottomSheet(lat, lng) {
-    document.getElementById('lat') ? document.getElementById('lat').value = lat : null; // Safety check if IDs differ
-    document.getElementById('lng') ? document.getElementById('lng').value = lng : null;
-
-    // Update hidden inputs in reformatted HTML forms
+    // Update Form
     document.getElementById('marker-lat').value = lat;
     document.getElementById('marker-lng').value = lng;
 
@@ -487,9 +472,11 @@ function setupUI() {
         aboutModal.classList.remove('hidden');
     });
 
-    aboutClose.addEventListener('click', () => {
-        aboutModal.classList.add('hidden');
-    });
+    if (aboutClose) {
+        aboutClose.addEventListener('click', () => {
+            aboutModal.classList.add('hidden');
+        });
+    }
 
     // Close about modal on outside click (reusing window global click from shared logic if applicable or adding specific)
     // The shared window click handles 'modal' variable which is the sound modal.
