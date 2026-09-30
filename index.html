@@ -3,8 +3,18 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mapa zvuka | Odjek naše svakodnevice</title>
+    <!-- PWA -->
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="description" content="Interaktivna karta zvučnih pejzaža grada. Snimi zvuk, označi emociju i istraži zvučnu dušu grada.">
+    <link rel="manifest" href="manifest.webmanifest">
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mapa zvuka">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -236,6 +246,16 @@
 
     <script src="config.js"></script>
     <script src="main.js"></script>
+    <script>
+        // PWA: registracija service workera (samo na sigurnim kontekstima)
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch((err) => {
+                    console.warn('SW registracija nije uspjela:', err);
+                });
+            });
+        }
+    </script>
 </body>
 
 </html>

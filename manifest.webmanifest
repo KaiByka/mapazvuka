@@ -1,0 +1,40 @@
+{
+    "name": "Mapa zvuka - Odjek naše svakodnevice",
+    "short_name": "Mapa zvuka",
+    "description": "Interaktivna karta zvučnih pejzaža grada. Snimi zvuk iz okoline, označi emociju i istraži zvučnu dušu grada.",
+    "lang": "hr",
+    "dir": "ltr",
+    "start_url": "./",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#1a1a1a",
+    "theme_color": "#1a1a1a",
+    "categories": ["maps", "social", "lifestyle"],
+    "icons": [
+        {
+            "src": "icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

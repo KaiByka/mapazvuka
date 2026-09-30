@@ -13,6 +13,7 @@ Interaktivna karta zvučnih pejzaža grada. Ovaj projekt omogućuje korisnicima 
 -   **Statistika Uživo**: "Status Bar" na dnu koji prikazuje puls grada (broj snimki, dominantna vibra) ovisno o pogledu.
 -   **Teme**: Automatski Light/Dark mode ovisno o postavkama sustava.
 -   **Caching**: Brzo učitavanje zahvaljujući LocalStorage predmemoriranju podataka.
+-   **PWA**: Instalabilna mobilna aplikacija (Android/iOS) s offline podrškom - vidi odjeljak PWA dolje.
 
 ## 🚀 Instalacija i Pokretanje
 
@@ -28,6 +29,28 @@ Ovaj projekt je statička web aplikacija (HTML/CSS/JS), što znači da ne zahtij
 2.  Idite na **Settings** > **Pages**.
 3.  Pod "Source" odaberite `main` (ili `master`) granu.
 4.  Spremite. Vaša karta će biti dostupna na `https://vase-ime.github.io/ime-repozitorija/`.
+
+
+## 📱 Mobilna aplikacija (PWA)
+
+Aplikacija je konfigurirana kao **Progressive Web App** - može se instalirati na početni ekran telefona i radi kao nativna aplikacija, bez objave u trgovinama.
+
+### Što je dodano
+-   `manifest.webmanifest` - naziv, ikone, boje, način prikaza (standalone).
+-   `sw.js` - Service Worker: offline cache app shella, CDN biblioteka i mape (tile-ovi, max 200). API pozivi (Apps Script, Cloudinary) uvijek idu izravno u mrežu.
+-   `icons/` - ikone 192/512 px + maskable varijante + `apple-touch-icon.png` (generirane iz `logo.png` skriptom `gen_icons.py`).
+-   Safe-area pravila u `style.css` (samo u standalone modu) da UI ne završi ispod notch-a/home indicatora.
+
+### Kako instalirati
+-   **Android (Chrome):** otvorite stranicu -> meni "Dodaj na početni ekran" / traka "Instaliraj".
+-   **iOS (Safari):** Share -> "Dodaj na početni ekran".
+
+### Preduvjeti
+-   Aplikacija mora biti servisirana preko **HTTPS-a** (GitHub Pages to zadovoljava) - bez toga se Service Worker ne registrira, a mikrofon i geolokacija ne rade.
+-   Ikone se mogu regenerirati: `python gen_icons.py`.
+
+### Objava na Google Play (TWA)
+Najjednostavniji put do storea: [PWABuilder](https://www.pwabuilder.com) generira Android TWA paket iz PWA manifest-a, bez nativnog koda. Potrebno: račun Google Play (25 USD jednokratno), politika privatnosti na javnom URL-u, deklaracija korištenja mikrofona i lokacije (Data Safety obrazac).
 
 ## ⚙️ Konfiguracija
 

@@ -1642,3 +1642,42 @@ body.light-mode .menu-separator {
         cursor: pointer;
     }
 }
+
+/* --- PWA: safe-area (izrez ekrana na mobilnim uređajima, samo u standalone modu) --- */
+@media all and (display-mode: standalone) {
+
+    /* Gornji rub: filteri i hamburger */
+    #filter-container {
+        top: calc(20px + env(safe-area-inset-top, 0px));
+    }
+
+    #menu-btn {
+        top: calc(20px + env(safe-area-inset-top, 0px));
+        right: calc(20px + env(safe-area-inset-right, 0px));
+    }
+
+    #locate-btn {
+        top: calc(130px + env(safe-area-inset-top, 0px));
+        left: calc(20px + env(safe-area-inset-left, 0px));
+    }
+
+    /* Donji rub: logo, status bar, about gumb */
+    #app-logo {
+        bottom: calc(25px + env(safe-area-inset-bottom, 0px));
+        left: calc(20px + env(safe-area-inset-left, 0px));
+    }
+
+    #status-bar {
+        bottom: calc(25px + env(safe-area-inset-bottom, 0px));
+    }
+
+    #about-btn {
+        bottom: calc(25px + env(safe-area-inset-bottom, 0px));
+        right: calc(20px + env(safe-area-inset-right, 0px));
+    }
+
+    /* Bottom sheet ne smije ići ispod home indicatora */
+    .bottom-sheet {
+        padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    }
+}
