@@ -17,22 +17,40 @@ const INITIAL_ZOOM = 13;
 
 // --- Colors ---
 const CATEGORY_COLORS = {
-    'Priroda': '#22c55e', // Green
-    'Voda': '#3b82f6',    // Blue
-    'Ljudi': '#eab308',   // Yellow
-    'Buka': '#ef4444'     // Red
+    'Priroda': '#22c55e',    // Green
+    'Grad': '#a855f7',       // Purple
+    'Ljudi': '#eab308',      // Yellow
+    'Promet': '#f97316',     // Orange
+    'Životinje': '#14b8a6',  // Teal
+    'Industrija': '#ef4444', // Red
+    // Legacy categories (stariji zapisi)
+    'Voda': '#3b82f6',       // Blue
+    'Buka': '#ef4444'        // Red
 };
 
 // --- Icons ---
 const getCategoryIcon = (category) => {
     switch (category) {
-        case 'Priroda': return '🌲';
+        case 'Priroda': return '🌿';
+        case 'Grad': return '🏙️';
+        case 'Ljudi': return '🗣️';
+        case 'Promet': return '🚗';
+        case 'Životinje': return '🐦';
+        case 'Industrija': return '🏭';
         case 'Voda': return '💧';
-        case 'Ljudi': return '☕';
         case 'Buka': return '📢';
         default: return '📍';
     }
 };
+
+// --- HTML Escaping (XSS protection) ---
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+}[char]));
 
 const getFeelingTag = (feeling) => {
     let type = 'neutral';
@@ -74,17 +92,37 @@ function initMap() {
     map = L.map('map').setView(ZAGREB_COORDS, INITIAL_ZOOM);
 
     // 2. Define Layers
-    const darkMatter = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 20
-    });
+    // OpenFreeMap (https://openfreemap.org): besplatni vektorski tile-ovi bez API kljuca.
+    // Stil se renderira MapLibre GL-om unutar Leafleta (maplibre-gl-leaflet bridge),
+    // pa sva Leaflet logika (markeri, long press, popupi) ostaje netaknuta.
+    const webglSupported = (() => {
+        try {
+            const canvas = document.createElement('canvas');
+            return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+        } catch (e) {
+            return false;
+        }
+    })();
 
-    const positron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 20
-    });
+    const createOpenFreeMapLayer = (styleName) => {
+        if (webglSupported && typeof L.maplibreGL === 'function') {
+            return L.maplibreGL({ style: 'https://tiles.openfreemap.org/styles/' + styleName });
+        }
+        // Raster fallback za uređaje bez WebGL-a (ili ako bridge nije učitan)
+        if (styleName === 'dark') {
+            return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 16,
+                attribution: 'Tiles &copy; Esri'
+            });
+        }
+        return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
+    };
+
+    const darkMatter = createOpenFreeMapLayer('dark');
+    const positron = createOpenFreeMapLayer('positron');
 
     const openTopo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
         maxZoom: 17,
@@ -97,35 +135,29 @@ function initMap() {
     // 4. Add Feeling Layers (All active by default)
     Object.values(feelingLayers).forEach(layer => layer.addTo(map));
 
-    // 5. Layer Controls (Exposed for Custom Menu)
+    // Base layers (exposed for the custom side menu)
     window.baseLayers = {
         "dark": darkMatter,
         "light": positron,
         "topo": openTopo
     };
-    // 5. Layer Controls (Standard for Desktop)
+
+    // Standard Leaflet layer control (CSS hides it on mobile)
     const baseMapsDesktop = {
         "Dark Matter": darkMatter,
         "Positron": positron,
         "OpenTopoMap": openTopo
     };
-    // Add default control (CSS will hide it on mobile)
     L.control.layers(baseMapsDesktop).addTo(map);
 
-    // 5. Click Event (Disabled for Long Press)
-    // map.on('click', onMapClick);
-
-    // 6. Long Press Setup
+    // Markers are added by long press instead of a simple click
     setupLongPressInteraction();
 
-    // 6. Dynamic Logo & Icon Coloring
+    // Dynamic logo & icon coloring per theme
     const logo = document.getElementById('app-logo');
     const aboutBtn = document.getElementById('about-btn');
 
-    // ... (keep existing theme logic) ...
-
     map.on('baselayerchange', (e) => {
-        // ... (keep existing logic) ...
         const isLight = e.name !== 'Dark Matter';
         if (!isLight) { // Dark Mode
             logo.classList.add('invert-white');
@@ -261,12 +293,13 @@ function triggerLongPressSuccess(x, y) {
     // Add new temp marker (Pin Drop)
     tempMarker = L.marker([lat, lng]).addTo(map);
 
-    // Update Form
-    document.getElementById('marker-lat').value = lat;
-    document.getElementById('marker-lng').value = lng;
-
     const sheet = document.getElementById('input-sheet');
     const overlay = document.getElementById('sheet-overlay');
+
+    // Reset the form first, then fill in the coordinates of the new point
+    resetForm();
+    document.getElementById('marker-lat').value = lat;
+    document.getElementById('marker-lng').value = lng;
 
     sheet.classList.add('active');
     overlay.classList.remove('hidden');
@@ -289,8 +322,6 @@ function closeBottomSheet() {
         tempMarker = null;
     }
 }
-// OLD: onMapClick (Removed/Unused)
-// function onMapClick(e) { ... }
 
 // --- Cloudinary ---
 let cloudinaryWidget;
@@ -307,7 +338,9 @@ function setupCloudinary() {
         sources: ['local', 'url'],
         resourceType: 'auto',
         multiple: false,
-        max_files: 1, // Explicitly limit to 1 file
+        max_files: 1,
+        maxFileSize: 15 * 1024 * 1024, // 15 MB limit
+        clientSideValidation: true,
         theme: 'minimal'
     }, (error, result) => {
         if (!error && result) {
@@ -337,8 +370,6 @@ let audioChunks = [];
 let recordedBlob = null;
 
 function setupRecorder() {
-    console.log("Initializing Recorder...");
-
     const recordBtn = document.getElementById('record-btn');
     const stopBtn = document.getElementById('stop-btn');
     let currentStream = null; // Track stream globally within closure to ensure we can stop it
@@ -480,24 +511,9 @@ function handleUploadSuccess(info) {
 }
 
 // --- User Interface ---
-// --- User Interface ---
-// const modal = document.getElementById('sound-modal'); // Legacy
 const form = document.getElementById('add-marker-form');
-// const closeBtn = document.querySelector('.close-btn'); // Legacy
 
 function setupUI() {
-    console.log("Setting up UI..."); // Debug Log
-    // closeBtn.addEventListener('click', closeModal); // Legacy
-
-    /*
-    // Close modal on outside click (Handled by sheet logic now)
-    window.addEventListener('click', (event) => {
-        if (event.target === modal) {
-            closeModal();
-        }
-    });
-    */
-
     if (form) form.addEventListener('submit', handleFormSubmit);
 
     // About Modal Logic
@@ -515,25 +531,22 @@ function setupUI() {
         });
     }
 
-    // Close about modal on outside click (reusing window global click from shared logic if applicable or adding specific)
-    // The shared window click handles 'modal' variable which is the sound modal.
-    // Let's add specific handling or generic class handling.
+    // Close about modal on outside click
     window.addEventListener('click', (event) => {
         if (event.target === aboutModal) {
             aboutModal.classList.add('hidden');
         }
     });
-    // --- Bottom Sheet Logic ---
-    // --- Bottom Sheet Logic ---
-    // Use delegation for robustness
+
+    // Bottom Sheet: close via click delegation
     document.addEventListener('click', (e) => {
         if (e.target.closest('#close-sheet-btn') || e.target.id === 'sheet-overlay') {
             e.preventDefault();
-            closeBottomSheet();
+            closeSheetAndStopRecording();
         }
     });
 
-    // Keep sidebar logic...
+    // Side menu logic
     const menuBtn = document.getElementById('menu-btn');
     const sideMenu = document.getElementById('side-menu');
     const closeMenuBtn = document.getElementById('close-menu-btn');
@@ -586,9 +599,6 @@ function setupUI() {
             layerButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
 
-            // Trigger Theme Logic manually
-            // We mimic the event object structure expected by the handler if we were reusing it,
-            // or just duplicate the simple check since we know what 'dark'/'light'/'topo' implies.
             const isLight = (layerKey === 'light');
 
             // Update Logo/Theme classes
@@ -607,19 +617,8 @@ function setupUI() {
                 document.body.classList.add('light-mode');
             }
 
-            // Also update marker styles if needed
-            //  updateMarkerStyles(isLight); // Assumption: this helper exists or logic is inline? 
-            // Checking previous code: updateMarkerStyles was called in baselayerchange.
-            // I need to verify if updateMarkerStyles is defined globally.
-            // In initMap it was called. It's likely a hoisted function or I should re-implement snippet.
-            // Wait, looking at Step 1057, line 135: `updateMarkerStyles(isLight);`
-            // I should find where `updateMarkerStyles` is defined. If it's inside `initMap`, I can't call it here.
-
-            // Just in case, I will skip it or inline the logic if simple. 
-            // However, the `baselayerchange` listener in `initMap` (lines 119-136) handles this. 
-            // DOES map.addLayer trigger 'baselayerchange'? 
-            // NO. It triggers 'layeradd'.
-            // So manual update IS needed.
+            // addLayer does not trigger 'baselayerchange', so restyle markers manually
+            updateMarkerStyles(isLight);
         });
     });
 
@@ -690,11 +689,8 @@ function setupUI() {
     setupRecorder();
 }
 
-function openModal(lat, lng) {
-    // Redirect to Bottom Sheet
-    openBottomSheet(lat, lng);
-
-    // Reset specific new form elements if needed (Sheet logic might handle values, but UI reset is good)
+// --- Form Reset & Sheet Closing ---
+function resetForm() {
     form.reset();
     document.getElementById('upload-status').textContent = '';
     document.getElementById('audioUrl').value = '';
@@ -723,11 +719,10 @@ function openModal(lat, lng) {
     recordedBlob = null;
 }
 
-function closeModal() {
-    // Redirect to Bottom Sheet Close
+function closeSheetAndStopRecording() {
     closeBottomSheet();
     // Stop recording if active
-    if (typeof mediaRecorder !== 'undefined' && mediaRecorder && mediaRecorder.state === 'recording') {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
     }
 }
@@ -743,6 +738,9 @@ async function handleFormSubmit(e) {
     // Handle Blob Upload if needed
     if (recordedBlob && !document.getElementById('audioUrl').value) {
         try {
+            if (recordedBlob.size > 15 * 1024 * 1024) {
+                throw new Error("snimka je veća od 15 MB");
+            }
             document.getElementById('upload-status').textContent = "Upload snimke na Cloud...";
             const formData = new FormData();
             formData.append('file', recordedBlob, 'recording.webm');
@@ -767,7 +765,7 @@ async function handleFormSubmit(e) {
 
         } catch (err) {
             console.error("Upload error:", err);
-            alert("Greška pri uploadu snimke. Pokušajte ponovno.");
+            alert("Greška pri uploadu snimke: " + err.message);
             submitBtn.textContent = "Spremi lokaciju";
             submitBtn.disabled = false;
             return;
@@ -780,45 +778,51 @@ async function handleFormSubmit(e) {
         lng: formData.get('lng'),
         category: formData.get('category'),
         feeling: formData.get('feeling'),
-        comment: formData.get('comment'), // New field
+        comment: formData.get('comment'),
         audioUrl: formData.get('audioUrl')
     };
 
     console.log("Submitting data:", data);
 
-    // Optimistic UI: Add marker immediately
-    addMarkerOnMap(data);
-    closeModal();
-    submitBtn.textContent = "Spremi lokaciju"; // Reset button for next time
+    if (!data.lat || !data.lng) {
+        alert("Lokacija nije postavljena. Označite točku na karti i pokušajte ponovno.");
+        submitBtn.textContent = "Spremi lokaciju";
+        submitBtn.disabled = false;
+        return;
+    }
+
+    // Optimistic UI: add the marker immediately, remove it if the save fails
+    const optimisticMarker = addMarkerOnMap(data);
+    closeSheetAndStopRecording();
+    submitBtn.textContent = "Spremi lokaciju";
     if (tempMarker) map.removeLayer(tempMarker);
 
     try {
-        // We use 'no-cors' mode often for Apps Script if not properly managing CORS headers, 
-        // but 'cors' is better if script handles options. 
-        // Standard Apps Script POST usually requires following redirects or specific setup.
-        // Simple POST with textual JSON payload:
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-        await fetch(CONFIG.APPS_SCRIPT_URL, {
+        // 'text/plain' avoids the CORS preflight that Apps Script cannot answer,
+        // so the response stays readable and failures are detectable.
+        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors', // Apps Script limits
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(data),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error('HTTP status ' + response.status);
 
         console.log("Data sent to Sheets");
-        // Note: no-cors means we can't read response.
 
     } catch (error) {
         console.error("Error saving marker:", error);
-        alert("Greška pri spremanju. Provjerite konzolu.");
+        if (optimisticMarker) removeMarker(optimisticMarker);
+        alert("Lokacija nije spremljena. Provjerite internetsku vezu i pokušajte ponovno.");
     }
 }
 
 async function fetchMarkers() {
-    console.log("Fetching markers...");
-
     // 1. Try LocalStorage Cache first
     const cachedData = localStorage.getItem('min_ak_markers');
     let hasLoadedFromCache = false;
@@ -875,7 +879,15 @@ function clearMarkers() {
     markers = [];
 }
 
-// --- Statistics Logic ---
+function removeMarker(marker) {
+    Object.values(feelingLayers).forEach(layerGroup => {
+        if (layerGroup.hasLayer(marker)) layerGroup.removeLayer(marker);
+    });
+    if (map.hasLayer(marker)) map.removeLayer(marker);
+    markers = markers.filter(m => m !== marker);
+    updateStatsFromView();
+}
+
 // --- Statistics Logic ---
 function updateStats(currentMarkers) {
     const total = currentMarkers.length;
@@ -917,11 +929,11 @@ function updateStats(currentMarkers) {
             </div>
             <div class="separator-dot">•</div>
             <div class="stat-item">
-                <i data-lucide="chart-bar-big" width="16" height="16"></i> <span>Dominira:</span> <span class="stat-highlight">${dominantCategory}</span>
+                <i data-lucide="chart-bar-big" width="16" height="16"></i> <span>Dominira:</span> <span class="stat-highlight">${escapeHtml(dominantCategory)}</span>
             </div>
             <div class="separator-dot">•</div>
             <div class="stat-item">
-                <i data-lucide="sparkles" width="16" height="16"></i> <span>Vibra:</span> <span class="stat-highlight">${feelLabel}</span>
+                <i data-lucide="sparkles" width="16" height="16"></i> <span>Vibra:</span> <span class="stat-highlight">${escapeHtml(feelLabel)}</span>
             </div>
         `;
     }
@@ -1022,15 +1034,13 @@ const getMarkerStyle = (color, isLight) => {
 function addMarkerOnMap(data) {
     const { lat, lng, category, feeling, comment, audioUrl } = data;
     const color = CATEGORY_COLORS[category] || '#ffffff';
-    // const iconChar = getCategoryIcon(category); // Not used in circle marker directly, handled in popup header
     const iconChar = getCategoryIcon(category);
 
-    // Create random simplified address/date simulation if not present
     const dateStr = new Date().toLocaleDateString('hr-HR');
     const addressStr = `${lat.toString().slice(0, 7)}, ${lng.toString().slice(0, 7)}`;
 
-    // Comment HTML if exists
-    const commentHtml = comment ? `<p class="popup-comment">"${comment}"</p>` : '';
+    // Comment HTML if exists (escaped to prevent XSS)
+    const commentHtml = comment ? `<p class="popup-comment">"${escapeHtml(comment)}"</p>` : '';
 
     const isLight = document.body.classList.contains('light-mode');
     const style = getMarkerStyle(color, isLight);
@@ -1072,7 +1082,7 @@ function addMarkerOnMap(data) {
             <div class="popup-details">
                 <h3 class="popup-title">Mapa zvuka</h3>
                 <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
-                    <span class="popup-category">${category}</span>
+                    <span class="popup-category">${escapeHtml(category)}</span>
                     ${feelingTagHtml}
                 </div>
                 ${commentHtml}
@@ -1165,10 +1175,10 @@ function addMarkerOnMap(data) {
     });
 
     markers.push(marker);
+    return marker;
 }
 
 function setupFilters() {
-    console.log("Setting up Filters..."); // Debug
     const buttons = document.querySelectorAll('.filter-btn');
     buttons.forEach(btn => {
         btn.addEventListener('click', () => {

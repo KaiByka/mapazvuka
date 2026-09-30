@@ -6,7 +6,7 @@ Interaktivna karta zvučnih pejzaža grada. Ovaj projekt omogućuje korisnicima 
 
 ## ✨ Značajke
 
--   **Interaktivna Mapa**: Bazirana na Leaflet.js, s custom markerima.
+-   **Interaktivna Mapa**: Bazirana na Leaflet.js + MapLibre GL (OpenFreeMap vektorski tile-ovi), s custom markerima.
 -   **Snimanje Zvuka**: Integrirani audio snimač direktno u pregledniku.
 -   **Upload**: Jednostavno učitavanje audio datoteka putem Cloudinary servisa.
 -   **Filtri**: Filtriranje točaka po osjećajima (Sretno, Opušteno, Stresno, Neutralno).
@@ -33,12 +33,17 @@ Ovaj projekt je statička web aplikacija (HTML/CSS/JS), što znači da ne zahtij
 
 Projekt koristi `config.js` za vanjske servise.
 
-### 1. Google Sheets (Baza podataka)
+### 1. OpenFreeMap (Pozadinske karte)
+Tamna i svijetla pozadinska karta koriste OpenFreeMap vektorske tile-ove (stilovi `dark` i `positron`), koje MapLibre GL renderira unutar Leafleta (bridge `maplibre-gl-leaflet`). Besplatno, bez API ključa i bez ograničenja: https://openfreemap.org/
+-   Za uređaje bez WebGL-a koristi se raster fallback (Esri dark / OSM).
+-   Topografski sloj koristi OpenTopoMap.
+
+### 2. Google Sheets (Baza podataka)
 Podaci o markerima se čuvaju u Google Tablici. Google Apps Script služi kao API.
 -   **URL**: Definiran u `CONFIG.APPS_SCRIPT_URL`.
 -   Skripta mora biti objavljena kao "Web App" s pristupom "Anyone".
 
-### 2. Cloudinary (Audio Hosting)
+### 3. Cloudinary (Audio Hosting)
 Audio datoteke se spremaju na Cloudinary.
 -   **Cloud Name**: `CONFIG.CLOUDINARY_CLOUD_NAME`
 -   **Upload Preset**: `CONFIG.CLOUDINARY_UPLOAD_PRESET` (Mora biti **Unsigned**).
@@ -54,6 +59,7 @@ Audio datoteke se spremaju na Cloudinary.
 ## 🛡️ Sigurnost
 
 -   Cloudinary preset je "Unsigned", što omogućuje upload s klijentske strane bez otkrivanja tajnih API ključeva.
+-   Klijent ograničava upload na jednu datoteku do 15 MB, ali to je provjera samo na strani preglednika - u Cloudinary nadzornoj ploči postavite ograničenja (veličina, formati) i na samom presetu.
 -   Google Apps Script URL je javan, ali samo za čitanje/pisanje na predviđeni način.
 
 ## 📄 Licenca
